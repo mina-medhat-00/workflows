@@ -1,0 +1,514 @@
+<meta charset="utf-8">
+<title>Tile Health — BOA Automation Map v2</title>
+<style>
+  :root{
+    --bg:#F6F9F8; --surface:#FFFFFF; --ink:#182420; --muted:#5B6B65; --line:#DAE3DF;
+    --accent:#0E7A68; --accent-soft:#E2F0EC; --accent-ink:#0A5C4F;
+    --sms:#33599F; --sms-soft:#E4EAF6;
+    --ok:#177A45; --ok-soft:#E1F1E7;
+    --warn:#996200; --warn-soft:#F7EDD8;
+    --crit:#B23327; --crit-soft:#F9E5E2;
+    --dead:#6B7A74; --dead-soft:#EAEEEC;
+    --code-bg:#EDF2F0;
+    --shadow:0 1px 2px rgba(24,36,32,.05),0 4px 14px rgba(24,36,32,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0E1412; --surface:#151C19; --ink:#E3EAE6; --muted:#92A39B; --line:#28332E;
+      --accent:#3FBFA4; --accent-soft:#12302A; --accent-ink:#6BD3BC;
+      --sms:#7FA3E0; --sms-soft:#1B2740;
+      --ok:#4CC077; --ok-soft:#12301E;
+      --warn:#D9A13B; --warn-soft:#33270E;
+      --crit:#E06456; --crit-soft:#3A1713;
+      --dead:#8A9992; --dead-soft:#1E2723;
+      --code-bg:#1C2622;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.3);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1124px;margin:0 auto;padding:56px 24px 80px}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}
+  h1{font-size:44px;line-height:1.08;letter-spacing:-.02em;margin:10px 0 16px;font-weight:800}
+  .sub{max-width:620px;color:var(--muted);font-size:18px;margin:0 0 14px}
+  .srcnote{color:var(--muted);font-size:14px;margin:0 0 28px}
+  .srcnote b{color:var(--ink)}
+  .tiles{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 26px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+    padding:18px 22px;min-width:130px}
+  .tile .n{font-size:30px;font-weight:800;line-height:1}
+  .tile .l{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+  .tile.ok .n{color:var(--ok)} .tile.bad .n{color:var(--crit)}
+  section{margin-top:64px}
+  h2{font-size:28px;letter-spacing:-.01em;margin:0 0 8px;font-weight:800}
+  h2 .num{color:var(--accent)}
+  .lede{max-width:640px;color:var(--muted);margin:0 0 22px}
+  code,.tag{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em;
+    background:var(--code-bg);border-radius:6px;padding:2px 7px}
+  /* chips + verdicts */
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;border-radius:999px;padding:5px 12px;white-space:nowrap}
+  .chip .dot{width:7px;height:7px;border-radius:50%}
+  .chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.ok .dot{background:var(--ok)}
+  .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.warn .dot{background:var(--warn)}
+  .chip.crit{background:var(--crit-soft);color:var(--crit)} .chip.crit .dot{background:var(--crit)}
+  .chip.dead{background:var(--dead-soft);color:var(--dead)} .chip.dead .dot{background:var(--dead)}
+  /* glance cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+    padding:20px 22px;display:flex;flex-direction:column}
+  .card h3{margin:0 0 8px;font-size:17px}
+  .card p{margin:0;color:var(--muted);font-size:14.5px}
+  .card .foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);display:flex;
+    justify-content:space-between;align-items:center;gap:10px;font-size:14px;color:var(--muted);margin-top:16px}
+  .card .foot b{color:var(--ink);font-size:16px}
+  /* changes */
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:20px 24px}
+  .panel h3{margin:0 0 12px;font-size:15px;text-transform:uppercase;letter-spacing:.08em}
+  .panel.fixed h3{color:var(--ok)} .panel.open h3{color:var(--crit)}
+  .panel ul{margin:0;padding-left:18px}
+  .panel li{margin:0 0 10px;font-size:14.5px}
+  .panel li:last-child{margin-bottom:0}
+  .panel li .why{color:var(--muted)}
+  /* coverage table */
+  .cov{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+  .cov .row{display:grid;grid-template-columns:250px 1fr;border-top:1px solid var(--line)}
+  .cov .row:first-child{border-top:0}
+  .cov .row.silent{background:var(--crit-soft)}
+  .cov .stage{padding:16px 20px;border-right:1px solid var(--line);display:flex;gap:12px;align-items:baseline}
+  .cov .stage .i{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted)}
+  .cov .stage b{font-size:15px}
+  .cov .what{padding:16px 20px;font-size:14.5px;color:var(--muted)}
+  .cov .what b{color:var(--ink)}
+  .cov .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:1px}
+  .dot.g{background:var(--ok)} .dot.y{background:var(--warn)} .dot.r{background:var(--crit)} .dot.d{background:var(--dead)}
+  /* workflow deep-dives */
+  .wf{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+    margin-top:26px;overflow:hidden}
+  .wf .hd{padding:24px 28px 0}
+  .wf .hd .top{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}
+  .wf h3{margin:0;font-size:22px;letter-spacing:-.01em}
+  .wf h3 .was{font-size:13px;color:var(--muted);font-weight:600;margin-left:10px}
+  .meta{display:flex;flex-wrap:wrap;gap:26px;margin:14px 0 18px;font-size:14px;color:var(--muted)}
+  .meta b{color:var(--ink)}
+  .meta .bad{color:var(--crit);font-weight:700}
+  .meta .good{color:var(--ok);font-weight:700}
+  .trig{margin:0 28px 6px;background:var(--accent-soft);border-radius:10px;padding:16px 20px;font-size:14.5px;color:var(--ink)}
+  .trig .t{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--accent-ink);margin-right:12px;text-transform:uppercase}
+  .trig.new{outline:2px solid var(--accent);outline-offset:-2px}
+  .steps{padding:14px 28px 26px}
+  .step{display:grid;grid-template-columns:84px 26px 1fr;column-gap:0;position:relative}
+  .step .when{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--muted);padding-top:6px;text-align:right;padding-right:14px;white-space:nowrap}
+  .rail{position:relative}
+  .rail:before{content:"";position:absolute;left:12px;top:0;bottom:0;width:2px;background:var(--line)}
+  .step:first-child .rail:before{top:10px}
+  .step:last-child .rail:before{bottom:auto;height:10px}
+  .rail .node{position:absolute;left:6px;top:5px;width:10px;height:10px;border-radius:50%;
+    background:var(--surface);border:3px solid var(--accent)}
+  .step.warn .rail .node{border-color:var(--crit)}
+  .step.gray .rail .node{border-color:var(--dead)}
+  .body{padding:0 0 26px 14px;min-width:0}
+  .step:last-child .body{padding-bottom:4px}
+  .bhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .badge{font-size:11px;font-weight:800;letter-spacing:.08em;border-radius:6px;padding:4px 9px;text-transform:uppercase}
+  .badge.email{background:var(--accent-soft);color:var(--accent-ink)}
+  .badge.sms{background:var(--sms-soft);color:var(--sms)}
+  .badge.task{background:transparent;color:var(--muted);border:1.5px dashed var(--muted)}
+  .badge.tag{background:var(--dead-soft);color:var(--dead)}
+  .badge.branch{background:var(--warn-soft);color:var(--warn)}
+  .badge.loop{background:var(--sms-soft);color:var(--sms)}
+  .bhead .nm{font-weight:700;font-size:16px}
+  .flag{font-size:12px;font-weight:700;background:var(--crit-soft);color:var(--crit);border-radius:6px;padding:4px 9px}
+  .flag.good{background:var(--ok-soft);color:var(--ok)}
+  .subj{margin:8px 0 0;font-size:14.5px;color:var(--muted)}
+  .subj b{color:var(--ink);font-weight:600}
+  .quote{margin:10px 0 0;padding:2px 0 2px 16px;border-left:3px solid var(--line);
+    font-family:Georgia,'Times New Roman',serif;font-size:15.5px}
+  details{margin-top:8px}
+  summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--accent-ink)}
+  details .quote{margin-top:10px}
+  .note{margin:10px 0 0;font-size:13.5px;color:var(--muted)}
+  .note.crit{color:var(--crit)}
+  /* issues table */
+  .issues{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+  .irow{display:grid;grid-template-columns:110px 150px 1fr 1fr;gap:16px;padding:16px 20px;border-top:1px solid var(--line);font-size:14.5px;align-items:start}
+  .irow:first-child{border-top:0}
+  .irow .where{font-weight:700}
+  .irow .impact{color:var(--muted)}
+  .sev{font-size:10.5px;font-weight:800;letter-spacing:.1em;border-radius:6px;padding:4px 9px;text-transform:uppercase;justify-self:start}
+  .sev.high{background:var(--crit-soft);color:var(--crit)}
+  .sev.med{background:var(--dead-soft);color:var(--dead)}
+  /* recs */
+  .rec{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+    padding:22px 26px;margin-top:16px;display:grid;grid-template-columns:38px 1fr;gap:16px}
+  .rec .n{width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);
+    font-weight:800;display:flex;align-items:center;justify-content:center}
+  .rec h3{margin:0;font-size:17px;display:inline}
+  .rec .eff{font-size:11px;font-weight:800;letter-spacing:.08em;background:var(--dead-soft);color:var(--dead);
+    border-radius:6px;padding:4px 9px;margin-left:10px;text-transform:uppercase;vertical-align:2px}
+  .rec p{margin:8px 0 0;color:var(--muted);font-size:14.5px}
+  footer{margin-top:70px;border-top:1px solid var(--line);padding-top:24px;max-width:660px;color:var(--muted);font-size:13.5px}
+  @media(max-width:760px){
+    h1{font-size:32px}
+    .cov .row{grid-template-columns:1fr}
+    .cov .stage{border-right:0;padding-bottom:0}
+    .irow{grid-template-columns:90px 1fr}
+    .step{grid-template-columns:64px 26px 1fr}
+  }
+</style>
+
+<div class="wrap">
+
+  <div class="kicker">Tile Health · GoHighLevel · Board of Advisors Funnel · v2</div>
+  <h1>The BOA drip campaign, as it runs today</h1>
+  <p class="sub">A step-by-step map of the three BOA automations — what triggers each one, every email and text
+    an advisor gets (with the real copy), what's working, and where the funnel goes silent.</p>
+  <p class="srcnote">Source: live workflow definitions + delivery stats from GoHighLevel HAR captures,
+    <b>Jul 27, 2026</b>. All three workflows were edited in the Jul 17–22 rebuild window. Delivery stats cover
+    the last 30 days. This is the busiest funnel of the three: <b>16 advisors in flight right now</b>.</p>
+
+  <div class="tiles">
+    <div class="tile"><div class="n">3</div><div class="l">Workflows</div></div>
+    <div class="tile"><div class="n">9</div><div class="l">Advisor emails</div></div>
+    <div class="tile"><div class="n">3</div><div class="l">Advisor texts</div></div>
+    <div class="tile"><div class="n">6</div><div class="l">Internal tasks</div></div>
+    <div class="tile"><div class="n">16</div><div class="l">Advisors in flight</div></div>
+    <div class="tile ok"><div class="n">12</div><div class="l">Replies · 30 days</div></div>
+    <div class="tile bad"><div class="n">0</div><div class="l">Link clicks · contract flow</div></div>
+  </div>
+
+  <!-- ============ 1 · READ ============ -->
+  <section>
+    <h2><span class="num">1</span> · The headline read</h2>
+    <p class="lede">BOAs are your most engaged audience and your most reply-driven one.</p>
+    <div class="cols">
+      <div class="panel fixed">
+        <h3>✓ What's working</h3>
+        <ul>
+          <li><b>Engagement is excellent.</b> Contract Sent's first email: 26 delivered, 22 opened, <b>7 replies</b>.
+            Across the flow, 12 replies in 30 days. Advisors answer when you write to them.</li>
+          <li><b>The exit logic is the best in any funnel.</b> Every Contract Sent touch is individually gated on
+            the <code>boa-contract-signed</code> tag, an entry guard skips deals already in "Signed," and a
+            "lost" deal is removed from the workflow outright. Signers don't get chased.</li>
+          <li><b>Stop-on-reply is ON in all three workflows,</b> and the no-show triggers cover three event tags
+            (<code>boa-demo-no-show</code>, <code>boa-intro-no-show</code>, <code>boa-intro-canceled</code>).</li>
+          <li><b>SMS delivers:</b> 64 sent, 62 delivered across the funnel in 30 days.</li>
+        </ul>
+      </div>
+      <div class="panel open">
+        <h3>✗ Where it leaks</h3>
+        <ul>
+          <li><b>Zero link clicks in the contract flow — because there's nothing to click.</b> None of the four
+            Contract Sent emails or the SMS contains the agreement link. 68 emails delivered, 0 clicks.</li>
+          <li><b>The nurture dies at Day 12.</b> Signed advisors — the channel the update email itself calls "one
+            of our strongest" — get a welcome, one update, one text, and then silence forever. No recurring loop.</li>
+          <li><b>A 40-advisor no-show cohort hit Missed Meeting</b> and the Day-0 email has no calendar link
+            (only the follow-ups do). 1 click and 4 replies out of ~59 emails; 10 advisors are parked mid-flow.</li>
+          <li><b>Most Contract Sent emails aren't personalized:</b> no <code>{{contact.first_name}}</code>, openers
+            like "Hey, Adam from Tile Healthcare here," subjects like "Contract - Tile Healthcare," and every
+            sign-off is "Tile Healthcare" instead of a person. No from-name/from-email anywhere.</li>
+          <li><b>Everything hangs on manual tags.</b> The BOA pipeline's stages trigger nothing — enrollment
+            depends on someone applying <code>boa-contract-sent</code> / <code>boa-contract-signed</code> by hand.
+            Forget the signed tag and the guards never trip <i>and</i> the nurture never starts.</li>
+          <li><b>Volume-tied compensation language:</b> "you get compensated every time one signs on" and "equity
+            stake plus commission on anything that closes" — the same class of language the partner compliance
+            cleanup purged. The BOA agreement may frame this differently; the copy should match whatever counsel
+            approved, not improvise.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2 · AT A GLANCE ============ -->
+  <section>
+    <h2><span class="num">2</span> · The three workflows at a glance</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>BOA — Contract Sent</h3>
+        <p>~9-day signature chase, tag-gated at every step. High reply volume (12), zero clicks — the agreement
+          link isn't in any touch.</p>
+        <div class="foot"><span><b>6</b> in flight</span><span class="chip warn"><span class="dot"></span>Replies · no link</span></div>
+      </div>
+      <div class="card">
+        <h3>BOA — Missed Meeting</h3>
+        <p>No-show chase across three event tags. Real cal.com links in the follow-ups, none in the Day-0 email.
+          40-advisor cohort in the last 30 days.</p>
+        <div class="foot"><span><b>10</b> in flight</span><span class="chip warn"><span class="dot"></span>High volume · leaky top</span></div>
+      </div>
+      <div class="card">
+        <h3>BOA — Signed &amp; Nurture</h3>
+        <p>Welcome + one update + one text over 12 days, then nothing. Your signed advisors have no ongoing
+          automated relationship.</p>
+        <div class="foot"><span><b>0</b> in flight</span><span class="chip crit"><span class="dot"></span>Dies at Day 12</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3 · COVERAGE ============ -->
+  <section>
+    <h2><span class="num">3</span> · Pipeline coverage — where automation listens</h2>
+    <p class="lede">The BOA pipeline has 6 stages. <b>None of them trigger anything</b> — every workflow runs on
+      manually applied tags. Highlighted rows are stages where an advisor sits and nothing happens.</p>
+    <div class="cov">
+      <div class="row silent"><div class="stage"><span class="i">01</span><b>Demo Booked</b></div>
+        <div class="what"><span class="dot r"></span>No confirmation or reminder — and this funnel just produced a 40-advisor
+          no-show cohort. Same gap as clinics and partners, at higher volume.</div></div>
+      <div class="row silent"><div class="stage"><span class="i">02</span><b>Ready to Sign</b></div>
+        <div class="what"><span class="dot r"></span>No automation between verbal yes and contract out.</div></div>
+      <div class="row"><div class="stage"><span class="i">03</span><b>Contract Sent</b></div>
+        <div class="what"><span class="dot y"></span>The stage itself is silent; the flow fires on the manually applied
+          <code>boa-contract-sent</code> tag. Works — when someone remembers.</div></div>
+      <div class="row"><div class="stage"><span class="i">04</span><b>Signed</b></div>
+        <div class="what"><span class="dot y"></span>Silent as a stage; the <code>boa-contract-signed</code> tag both exits the
+          contract chase and starts the nurture. Forget the tag and both fail quietly.</div></div>
+      <div class="row"><div class="stage"><span class="i">05</span><b>No Show</b></div>
+        <div class="what"><span class="dot y"></span>Silent as a stage; three <code>boa-*</code> no-show/cancel tags cover the events.</div></div>
+      <div class="row"><div class="stage"><span class="i">06</span><b>Lost</b></div>
+        <div class="what"><span class="dot g"></span>Contract Sent checks this stage and removes the contact from the workflow — the
+          one place a stage is actually consulted.</div></div>
+    </div>
+  </section>
+
+  <!-- ============ 4 · DEEP DIVES ============ -->
+  <section>
+    <h2><span class="num">4</span> · Step by step, with the real copy</h2>
+    <p class="lede">Template variables like <code>{{contact.first_name}}</code> render at send time; text in red
+      boxes is literal text the advisor sees.</p>
+
+    <!-- ===== Contract Sent ===== -->
+    <div class="wf">
+      <div class="hd">
+        <div class="top">
+          <h3>BOA — Contract Sent <span class="was">v17 · edited Jul 22</span></h3>
+          <span class="chip warn"><span class="dot"></span>Replies · no link</span>
+        </div>
+        <div class="meta">
+          <span>In flight <b>6</b></span><span>Duration <b>~9 days</b></span>
+          <span>Touches <b>4 emails · 1 SMS · 2 tasks</b></span>
+          <span>Stop on reply <span class="good">ON</span></span>
+          <span>30-day sends <b>68 emails · 12 replies · 0 clicks · 1 unsub</b></span>
+        </div>
+      </div>
+      <div class="trig"><span class="t">Trigger</span> Tag <code>boa-contract-sent</code> is added (manual). Entry guard skips
+        anyone already in "Signed"; a parallel branch removes "lost" deals from the workflow. Every touch below only
+        sends if the <code>boa-contract-signed</code> tag is still absent.</div>
+      <div class="steps">
+        <div class="step warn"><div class="when">Day 0</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 1</span><span class="nm">Delivery check</span><span class="flag">no link · no first name</span></div>
+          <p class="subj">Subject: <b>"Contract - Tile Healthcare"</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hey, Adam from Tile Healthcare here</p>
+            <p>Just checking in to see if the contract came in on your end,</p>
+            <p>Excited to move forward!</p>
+            <p>Tile Healthcare</p></div>
+          </details>
+          <p class="note crit">26 delivered, 22 opened, 7 replies — your best-performing email by engagement, with no
+            greeting name, no agreement link, and a company sign-off. Imagine what it does with all three.</p>
+        </div></div>
+        <div class="step warn"><div class="when">Day 2</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 2</span><span class="nm">Follow-up</span><span class="flag">no link</span></div>
+          <p class="subj">Subject: <b>"Following Up - Tile Healthcare"</b> — "Were you able to take a look at the
+            contract yet?" 21 delivered, 16 opened, 4 replies. Task fires alongside.</p>
+        </div></div>
+        <div class="step"><div class="when">Day 5</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge sms">SMS</span><span class="nm">Nudge</span><span class="flag">no link</span></div>
+          <div class="quote">"Hey {{contact.first_name}}, looks like you haven't gotten around to looking at the contract.
+            No worries, Let us know if there are any questions, concerns, or issues"</div>
+        </div></div>
+        <div class="step"><div class="when">Day 7</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 3</span><span class="nm">Dense-sections flag</span><span class="flag">no link · no call link</span></div>
+          <p class="subj">Subject: <b>"One thing I want to flag before you sign"</b> — offers a phone call with no way
+            to book one. Task fires alongside.</p>
+        </div></div>
+        <div class="step"><div class="when">Day 9</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 4</span><span class="nm">Close-out</span></div>
+          <p class="subj">Subject: <b>"{{contact.first_name}}, should we close this out?"</b> — the takeaway close.
+            Good instinct; 10 delivered, 9 opened, 1 reply. Adds tag <code>follow-up</code>, sequence ends.</p>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ===== Missed Meeting ===== -->
+    <div class="wf">
+      <div class="hd">
+        <div class="top">
+          <h3>BOA — Missed Meeting <span class="was">v10 · edited Jul 20</span></h3>
+          <span class="chip warn"><span class="dot"></span>High volume · leaky top</span>
+        </div>
+        <div class="meta">
+          <span>In flight <b>10</b></span><span>Duration <b>~5 days</b></span>
+          <span>Touches <b>3 emails · 1 SMS · 2 tasks</b></span>
+          <span>Stop on reply <span class="good">ON</span></span>
+          <span>30-day sends <b>59 emails · 4 replies · 1 click</b></span>
+        </div>
+      </div>
+      <div class="trig"><span class="t">Trigger</span> Tags <code>boa-demo-no-show</code>, <code>boa-intro-no-show</code>, or
+        <code>boa-intro-canceled</code>. Adds <code>boa - no show</code> on entry.</div>
+      <div class="steps">
+        <div class="step warn"><div class="when">Day 0</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 1</span><span class="nm">Instant reschedule ask</span><span class="flag">no calendar link</span></div>
+          <p class="subj">Subject: <b>"{{contact.first_name}}, missed you on the call"</b> — reply-only rebooking;
+            40 delivered, 23 opened, 3 replies. The cal.com link that lives in Emails 2 and 3 is missing exactly
+            where the volume is.</p>
+        </div></div>
+        <div class="step"><div class="when">+30 min</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge sms">SMS</span><span class="nm">Text nudge</span><span class="flag">no link</span></div>
+          <div class="quote">"Hey {{contact.first_name}}, looks like we missed each other. No worries, reply with a good
+            time and I'll resend the invite." — 40 sent, 39 delivered.</div>
+        </div></div>
+        <div class="step gray"><div class="when">Day 2</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge task">Task</span><span class="nm">"Call - Reschedule Missed Meeting" → Adam</span></div>
+        </div></div>
+        <div class="step"><div class="when">Day 2</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 2</span><span class="nm">Soft follow-up</span><span class="flag good">cal.com link ✓</span></div>
+          <p class="subj">Subject: <b>"Re: missed you on the call"</b> — 15 delivered, 6 opened, 1 reply, 1 click.
+            10 advisors are parked in the wait right after this step.</p>
+        </div></div>
+        <div class="step warn"><div class="when">Day 5</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 3</span><span class="nm">Value pitch + breakup</span><span class="flag">comp language</span></div>
+          <p class="subj">Subject: <b>"{{contact.company_name}}, still worth 20 minutes?"</b> — cal.com link ✓,
+            then "Call BOA" task and tag <code>follow-up</code>.</p>
+          <p class="note crit">Body: <i>"equity plus revenue share for warm introductions… you get compensated every
+            time one signs on."</i> Same volume-tied class of language the partner compliance cleanup removed —
+            align this with whatever the BOA agreement actually says before more sends.</p>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ===== Signed & Nurture ===== -->
+    <div class="wf">
+      <div class="hd">
+        <div class="top">
+          <h3>BOA — Signed &amp; Nurture <span class="was">v9 · edited Jul 17</span></h3>
+          <span class="chip crit"><span class="dot"></span>Dies at Day 12</span>
+        </div>
+        <div class="meta">
+          <span>In flight <b>0</b></span><span>Duration <b>12 days, then silence</b></span>
+          <span>Touches <b>2 emails · 1 SMS · 2 tasks</b></span>
+          <span>Stop on reply <span class="good">ON</span></span>
+          <span>Re-entry <span class="good">ON</span></span>
+        </div>
+      </div>
+      <div class="trig"><span class="t">Trigger</span> Tag <code>boa-contract-signed</code> is added (manual) — the same tag that
+        exits the contract chase. One tag, two jobs, zero automation applying it.</div>
+      <div class="steps">
+        <div class="step warn"><div class="when">Day 0</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 1</span><span class="nm">Welcome</span><span class="flag">no scheduling link</span></div>
+          <p class="subj">Subject: <b>"Welcome to Tile Health, {{contact.first_name}}!"</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hey {{contact.first_name}},</p>
+            <p>Welcome to Tile Healthcare!</p>
+            <p>We're happy to have you on board, and we're excited to do amazing things together.</p>
+            <p>What time would it be good to set a biweekly 15Mins meeting?</p>
+            <p>Best,</p>
+            <p>Tile Healthcare</p></div>
+          </details>
+          <p class="note crit">Asks for a biweekly meeting with no calendar link, then nothing in the flow ever
+            schedules or mentions it again.</p>
+        </div></div>
+        <div class="step warn"><div class="when">Day 7</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 2</span><span class="nm">Update + intro ask</span><span class="flag">comp language</span></div>
+          <p class="subj">Subject: <b>"Update -  Tile Healthcare"</b> — good structure (update → ask → offer materials),
+            but "equity stake plus commission on anything that closes" needs the same compliance alignment, and
+            "alot" is in the first sentence. Touch-base task fires alongside.</p>
+        </div></div>
+        <div class="step"><div class="when">Day 12</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge sms">SMS</span><span class="nm">Intro ask</span></div>
+          <div class="quote">"Hey {{contact.first_name}}, any intros I should follow up on this month? Happy to send you
+            our latest one-pager if it helps" — then a follow-up task, and the workflow ends.</div>
+        </div></div>
+        <div class="step warn"><div class="when">Day 12+</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge branch">End</span><span class="nm">No loop, no monthly cadence</span><span class="flag">the funnel's biggest gap</span></div>
+          <p class="note crit">The advisor who signed to make introductions gets exactly one ask cycle. Compare:
+            Missed Meeting sends more touches to people who ghosted a demo than this flow sends to people who
+            signed an agreement to help you.</p>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5 · ISSUES ============ -->
+  <section>
+    <h2><span class="num">5</span> · Open issues</h2>
+    <div class="issues">
+      <div class="irow"><span class="sev high">High</span><span class="where">Contract Sent · all touches</span>
+        <span>No agreement link anywhere in the flow</span>
+        <span class="impact">68 emails delivered, 0 clicks. Every reminder asks the advisor to go find the original
+          contract email. 6 advisors in flight.</span></div>
+      <div class="irow"><span class="sev high">High</span><span class="where">Signed &amp; Nurture</span>
+        <span>Nurture ends after 12 days with no recurring loop</span>
+        <span class="impact">Signed advisors — the funnel's whole point — go permanently silent after one ask cycle.</span></div>
+      <div class="irow"><span class="sev high">High</span><span class="where">Missed Meeting · Email 1</span>
+        <span>No calendar link in the Day-0 email or SMS</span>
+        <span class="impact">The highest-volume touch (40 delivered) is reply-only; the link appears only after
+          engagement has already decayed.</span></div>
+      <div class="irow"><span class="sev high">High</span><span class="where">Comp language</span>
+        <span>"Compensated every time one signs on" / "commission on anything that closes"</span>
+        <span class="impact">Volume-tied payment language in two live emails; align with the counsel-approved BOA
+          agreement framing.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">Triggers</span>
+        <span>Everything runs on manual tags; pipeline stages wired to nothing</span>
+        <span class="impact">Forgetting <code>boa-contract-signed</code> means signers keep getting chased AND never
+          enter the nurture — a double failure from one missed tag.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">Contract Sent · copy</span>
+        <span>No first names, "Contract - Tile Healthcare" subjects, company sign-offs</span>
+        <span class="impact">The least personal copy in the org is pointed at the most relationship-driven audience.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">All 9 emails</span>
+        <span>No from-name / from-email</span>
+        <span class="impact">Deliverability and inbox display ride on account defaults, same as the other funnels.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">Coverage</span>
+        <span>Demo Booked / Ready to Sign have no automation</span>
+        <span class="impact">A 40-advisor no-show cohort is what "no demo confirmation flow" costs at BOA volume.</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 6 · RECOMMENDATIONS ============ -->
+  <section>
+    <h2><span class="num">6</span> · Recommendations</h2>
+    <p class="lede">In order. BOAs reply — the fixes here are about giving those replies fewer chances to be
+      necessary and giving everyone else something to click.</p>
+    <div class="rec"><div class="n">1</div><div>
+      <h3>Put the agreement link in all five Contract Sent touches.</h3><span class="eff">20 min</span>
+      <p>Use <code>{{document.url}}</code> (as the partner flow does) in all four emails and the SMS, and turn on
+        click tracking. This is the highest-engagement flow in the org sending reminders with nothing to click.</p>
+    </div></div>
+    <div class="rec"><div class="n">2</div><div>
+      <h3>Make the nurture recurring.</h3><span class="eff">~30 min</span>
+      <p>Add a 30-day wait + go-to loop after the Day-12 SMS (the Monthly Check-in pattern): one short monthly
+        email alternating a traction update with a direct intro ask, each ending with the same one-line ask.
+        Advisors signed up to help; let the system keep asking.</p>
+    </div></div>
+    <div class="rec"><div class="n">3</div><div>
+      <h3>Move the cal.com link to Day 0 in Missed Meeting.</h3><span class="eff">10 min</span>
+      <p>Email 1 and the SMS carry 70% of the volume and have no link. Add the board-of-advisor cal.com link to
+        both; keep the reply path as the alternative.</p>
+    </div></div>
+    <div class="rec"><div class="n">4</div><div>
+      <h3>Align compensation language with the BOA agreement.</h3><span class="eff">15 min + counsel check</span>
+      <p>Rewrite the two flagged sentences to whatever framing the agreement actually uses, and keep per-deal
+        payment language out of automated copy — same discipline as the partner cleanup.</p>
+    </div></div>
+    <div class="rec"><div class="n">5</div><div>
+      <h3>Personalize Contract Sent and set senders everywhere.</h3><span class="eff">30 min</span>
+      <p>First-name greetings, human sign-off (Adam), real subjects, from-name/from-email on all 9 emails. The
+        rewritten copy is in boa_drip_optimized.md, ready to paste.</p>
+    </div></div>
+    <div class="rec"><div class="n">6</div><div>
+      <h3>Wire the stages, keep the tags as backup.</h3><span class="eff">~30 min</span>
+      <p>Trigger Contract Sent from the "Contract Sent" stage and the signed tag from the "Signed" stage (or the
+        document-signed event), so one forgotten manual tag can't break both the chase exit and the nurture.
+        Then a demo confirmation/reminder mini-flow — 40 no-shows a month says it pays for itself immediately.</p>
+    </div></div>
+  </section>
+
+  <footer>
+    Built from HAR captures of the GoHighLevel workflow builder (Jul 27, 2026): full workflow definitions
+    including step graphs, message templates, trigger conditions, tag guards, and 30-day delivery statistics.
+    Internal tasks are assigned to Adam Elnaba. Template variables like {{contact.first_name}} render as the
+    contact's real data at send time; text shown in red boxes is literal text the advisor sees.
+  </footer>
+
+</div>

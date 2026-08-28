@@ -1,0 +1,602 @@
+<meta charset="utf-8">
+<title>Tile Health — Partners Automation Map v2</title>
+<style>
+  :root{
+    --bg:#F6F9F8; --surface:#FFFFFF; --ink:#182420; --muted:#5B6B65; --line:#DAE3DF;
+    --accent:#0E7A68; --accent-soft:#E2F0EC; --accent-ink:#0A5C4F;
+    --sms:#33599F; --sms-soft:#E4EAF6;
+    --ok:#177A45; --ok-soft:#E1F1E7;
+    --warn:#996200; --warn-soft:#F7EDD8;
+    --crit:#B23327; --crit-soft:#F9E5E2;
+    --dead:#6B7A74; --dead-soft:#EAEEEC;
+    --code-bg:#EDF2F0;
+    --shadow:0 1px 2px rgba(24,36,32,.05),0 4px 14px rgba(24,36,32,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0E1412; --surface:#151C19; --ink:#E3EAE6; --muted:#92A39B; --line:#28332E;
+      --accent:#3FBFA4; --accent-soft:#12302A; --accent-ink:#6BD3BC;
+      --sms:#7FA3E0; --sms-soft:#1B2740;
+      --ok:#4CC077; --ok-soft:#12301E;
+      --warn:#D9A13B; --warn-soft:#33270E;
+      --crit:#E06456; --crit-soft:#3A1713;
+      --dead:#8A9992; --dead-soft:#1E2723;
+      --code-bg:#1C2622;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.3);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1124px;margin:0 auto;padding:56px 24px 80px}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}
+  h1{font-size:44px;line-height:1.08;letter-spacing:-.02em;margin:10px 0 16px;font-weight:800}
+  .sub{max-width:620px;color:var(--muted);font-size:18px;margin:0 0 14px}
+  .srcnote{color:var(--muted);font-size:14px;margin:0 0 28px}
+  .srcnote b{color:var(--ink)}
+  .tiles{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 26px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+    padding:18px 22px;min-width:130px}
+  .tile .n{font-size:30px;font-weight:800;line-height:1}
+  .tile .l{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+  .tile.ok .n{color:var(--ok)} .tile.bad .n{color:var(--crit)}
+  section{margin-top:64px}
+  h2{font-size:28px;letter-spacing:-.01em;margin:0 0 8px;font-weight:800}
+  h2 .num{color:var(--accent)}
+  .lede{max-width:640px;color:var(--muted);margin:0 0 22px}
+  code,.tag{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em;
+    background:var(--code-bg);border-radius:6px;padding:2px 7px}
+  /* chips + verdicts */
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;border-radius:999px;padding:5px 12px;white-space:nowrap}
+  .chip .dot{width:7px;height:7px;border-radius:50%}
+  .chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.ok .dot{background:var(--ok)}
+  .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.warn .dot{background:var(--warn)}
+  .chip.crit{background:var(--crit-soft);color:var(--crit)} .chip.crit .dot{background:var(--crit)}
+  .chip.dead{background:var(--dead-soft);color:var(--dead)} .chip.dead .dot{background:var(--dead)}
+  /* glance cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+    padding:20px 22px;display:flex;flex-direction:column}
+  .card h3{margin:0 0 8px;font-size:17px}
+  .card p{margin:0;color:var(--muted);font-size:14.5px}
+  .card .foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);display:flex;
+    justify-content:space-between;align-items:center;gap:10px;font-size:14px;color:var(--muted);margin-top:16px}
+  .card .foot b{color:var(--ink);font-size:16px}
+  /* changes */
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:20px 24px}
+  .panel h3{margin:0 0 12px;font-size:15px;text-transform:uppercase;letter-spacing:.08em}
+  .panel.fixed h3{color:var(--ok)} .panel.open h3{color:var(--crit)}
+  .panel ul{margin:0;padding-left:18px}
+  .panel li{margin:0 0 10px;font-size:14.5px}
+  .panel li:last-child{margin-bottom:0}
+  .panel li .why{color:var(--muted)}
+  /* coverage table */
+  .cov{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+  .cov .row{display:grid;grid-template-columns:250px 1fr;border-top:1px solid var(--line)}
+  .cov .row:first-child{border-top:0}
+  .cov .row.silent{background:var(--crit-soft)}
+  .cov .stage{padding:16px 20px;border-right:1px solid var(--line);display:flex;gap:12px;align-items:baseline}
+  .cov .stage .i{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted)}
+  .cov .stage b{font-size:15px}
+  .cov .what{padding:16px 20px;font-size:14.5px;color:var(--muted)}
+  .cov .what b{color:var(--ink)}
+  .cov .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:1px}
+  .dot.g{background:var(--ok)} .dot.y{background:var(--warn)} .dot.r{background:var(--crit)} .dot.d{background:var(--dead)}
+  /* workflow deep-dives */
+  .wf{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+    margin-top:26px;overflow:hidden}
+  .wf .hd{padding:24px 28px 0}
+  .wf .hd .top{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}
+  .wf h3{margin:0;font-size:22px;letter-spacing:-.01em}
+  .wf h3 .was{font-size:13px;color:var(--muted);font-weight:600;margin-left:10px}
+  .meta{display:flex;flex-wrap:wrap;gap:26px;margin:14px 0 18px;font-size:14px;color:var(--muted)}
+  .meta b{color:var(--ink)}
+  .meta .bad{color:var(--crit);font-weight:700}
+  .meta .good{color:var(--ok);font-weight:700}
+  .trig{margin:0 28px 6px;background:var(--accent-soft);border-radius:10px;padding:16px 20px;font-size:14.5px;color:var(--ink)}
+  .trig .t{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--accent-ink);margin-right:12px;text-transform:uppercase}
+  .trig.new{outline:2px solid var(--accent);outline-offset:-2px}
+  .steps{padding:14px 28px 26px}
+  .step{display:grid;grid-template-columns:84px 26px 1fr;column-gap:0;position:relative}
+  .step .when{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--muted);padding-top:6px;text-align:right;padding-right:14px;white-space:nowrap}
+  .rail{position:relative}
+  .rail:before{content:"";position:absolute;left:12px;top:0;bottom:0;width:2px;background:var(--line)}
+  .step:first-child .rail:before{top:10px}
+  .step:last-child .rail:before{bottom:auto;height:10px}
+  .rail .node{position:absolute;left:6px;top:5px;width:10px;height:10px;border-radius:50%;
+    background:var(--surface);border:3px solid var(--accent)}
+  .step.warn .rail .node{border-color:var(--crit)}
+  .step.gray .rail .node{border-color:var(--dead)}
+  .body{padding:0 0 26px 14px;min-width:0}
+  .step:last-child .body{padding-bottom:4px}
+  .bhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .badge{font-size:11px;font-weight:800;letter-spacing:.08em;border-radius:6px;padding:4px 9px;text-transform:uppercase}
+  .badge.email{background:var(--accent-soft);color:var(--accent-ink)}
+  .badge.sms{background:var(--sms-soft);color:var(--sms)}
+  .badge.task{background:transparent;color:var(--muted);border:1.5px dashed var(--muted)}
+  .badge.tag{background:var(--dead-soft);color:var(--dead)}
+  .badge.branch{background:var(--warn-soft);color:var(--warn)}
+  .badge.loop{background:var(--sms-soft);color:var(--sms)}
+  .bhead .nm{font-weight:700;font-size:16px}
+  .flag{font-size:12px;font-weight:700;background:var(--crit-soft);color:var(--crit);border-radius:6px;padding:4px 9px}
+  .flag.good{background:var(--ok-soft);color:var(--ok)}
+  .subj{margin:8px 0 0;font-size:14.5px;color:var(--muted)}
+  .subj b{color:var(--ink);font-weight:600}
+  .quote{margin:10px 0 0;padding:2px 0 2px 16px;border-left:3px solid var(--line);
+    font-family:Georgia,'Times New Roman',serif;font-size:15.5px}
+  details{margin-top:8px}
+  summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--accent-ink)}
+  details .quote{margin-top:10px}
+  .note{margin:10px 0 0;font-size:13.5px;color:var(--muted)}
+  .note.crit{color:var(--crit)}
+  /* issues table */
+  .issues{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+  .irow{display:grid;grid-template-columns:110px 150px 1fr 1fr;gap:16px;padding:16px 20px;border-top:1px solid var(--line);font-size:14.5px;align-items:start}
+  .irow:first-child{border-top:0}
+  .irow .where{font-weight:700}
+  .irow .impact{color:var(--muted)}
+  .sev{font-size:10.5px;font-weight:800;letter-spacing:.1em;border-radius:6px;padding:4px 9px;text-transform:uppercase;justify-self:start}
+  .sev.high{background:var(--crit-soft);color:var(--crit)}
+  .sev.med{background:var(--dead-soft);color:var(--dead)}
+  /* recs */
+  .rec{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+    padding:22px 26px;margin-top:16px;display:grid;grid-template-columns:38px 1fr;gap:16px}
+  .rec .n{width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);
+    font-weight:800;display:flex;align-items:center;justify-content:center}
+  .rec h3{margin:0;font-size:17px;display:inline}
+  .rec .eff{font-size:11px;font-weight:800;letter-spacing:.08em;background:var(--dead-soft);color:var(--dead);
+    border-radius:6px;padding:4px 9px;margin-left:10px;text-transform:uppercase;vertical-align:2px}
+  .rec p{margin:8px 0 0;color:var(--muted);font-size:14.5px}
+  footer{margin-top:70px;border-top:1px solid var(--line);padding-top:24px;max-width:660px;color:var(--muted);font-size:13.5px}
+  @media(max-width:760px){
+    h1{font-size:32px}
+    .cov .row{grid-template-columns:1fr}
+    .cov .stage{border-right:0;padding-bottom:0}
+    .irow{grid-template-columns:90px 1fr}
+    .step{grid-template-columns:64px 26px 1fr}
+  }
+</style>
+
+<div class="wrap">
+
+  <div class="kicker">Tile Health · GoHighLevel · Partners Funnel (RCM · EHR · Consultants) · v2</div>
+  <h1>The partner drip campaign, after the July rebuild</h1>
+  <p class="sub">A step-by-step map of the four partner automations as they run today — what triggers each one,
+    every email and text a partner gets (with the real copy), what the rebuild fixed, and what's still broken.</p>
+  <p class="srcnote">Source: live workflow definitions + delivery stats from GoHighLevel HAR captures, <b>Jul 27, 2026</b>,
+    compared against the <b>Jul 16</b> captures. Delivery stats cover the last 30 days. A fifth workflow
+    (Unresponsive Contact Outreach) was not re-captured and is not assessed here.</p>
+
+  <div class="tiles">
+    <div class="tile"><div class="n">4</div><div class="l">Workflows</div></div>
+    <div class="tile"><div class="n">14</div><div class="l">Partner emails</div></div>
+    <div class="tile"><div class="n">6</div><div class="l">Partner texts</div></div>
+    <div class="tile"><div class="n">6</div><div class="l">Internal tasks</div></div>
+    <div class="tile"><div class="n">5</div><div class="l">Contacts in flight</div></div>
+    <div class="tile ok"><div class="n">5</div><div class="l">Fixes shipped</div></div>
+    <div class="tile bad"><div class="n">8</div><div class="l">Issues open</div></div>
+  </div>
+
+  <!-- ============ 1 · WHAT CHANGED ============ -->
+  <section>
+    <h2><span class="num">1</span> · What changed since the Jul 16 captures</h2>
+    <p class="lede">All four workflows were renamed and re-triggered between Jul 17 and Jul 21. The wiring is
+      dramatically better; the copy upgrade shipped for the front half of one workflow and stopped there.</p>
+    <div class="cols">
+      <div class="panel fixed">
+        <h3>✓ Fixed in the rebuild</h3>
+        <ul>
+          <li><b>Every trigger was rebuilt.</b> The broken Contact Tag trigger (2,650 attempts, 0 matches) and the
+            one-off webhook are gone. Missed Meeting now fires on <b>five</b> event tags (intro/demo/contract
+            no-shows and cancellations), Contract Sent on the RCM pipeline's "Contract Sent" stage plus a
+            <code>partnership-contract-sent</code> tag, Partner Referral on "Waiting for Referrals" plus a
+            <code>waiting referral</code> tag.</li>
+          <li><b>SMS deliverability is fixed.</b> Jul 16: 0% of SMS delivered. Last 30 days: 21 of 21 delivered.
+            Whatever was wrong with A2P/number setup got resolved.</li>
+          <li><b>Contract Sent actually fires now:</b> 12 emails delivered in 30 days (vs ~3 contacts ever, before),
+            2 signing-link clicks, 4 partners in flight right now.</li>
+          <li><b>Stop-on-reply turned ON</b> for Missed Meeting, Contract Sent, and Partner Referral — a partner
+            who replies no longer keeps getting nagged.</li>
+          <li><b>The optimized referral copy shipped — for Emails 1 and 2.</b> "How referrals work (30 seconds,
+            one email)" and the 30-second clinic filter (with the 50+ Medicare threshold filled in) are live,
+            word for word from the optimization doc.</li>
+        </ul>
+      </div>
+      <div class="panel open">
+        <h3>✗ Still open</h3>
+        <ul>
+          <li><b>Contract Sent still runs the old corporate copy end-to-end</b> — including the
+            <b>"Revenue Share Terms" FAQ email</b> the compliance cleanup said to purge (the model is a flat
+            monthly fee), with answers that answer nothing.</li>
+          <li><b>An email with subject "test" is live</b> at the end of Booking Rejected — and its body promises
+            "you get a referral fee," volume-tied payment language the compliance notes ruled out.</li>
+          <li><b>One tag starts two competing sequences:</b> <code>partnership-intro-canceled</code> triggers
+            <i>both</i> Missed Meeting and Booking Rejected. A canceled intro currently gets chased by two
+            automations at once.</li>
+          <li><b>The signing link exists only in Email 1.</b> Every reminder after it (2 emails, 2 SMS) still asks
+            the partner to go find the first email.</li>
+          <li><b>The "exit if signed" check is decorative.</b> It's a dead-end branch at the bottom of Contract
+            Sent, not a workflow Goal — signers still receive every reminder along the way.</li>
+          <li><b>Partner Referral's back half is untouched:</b> the Day-7 "please submit referrals" SMS with no way
+            to submit, the empty Day-14 "Partner Program Update," and a Day-21 branch that does nothing on
+            either path.</li>
+          <li><b>No from-name / from-email on any of the 14 emails,</b> and <code>{{contact.name}}</code> /
+            <code>{{contact.first_name}}</code> are still mixed.</li>
+          <li><b>The EHR/consultants pipeline is entirely unwired</b> — all stage triggers point at the RCM
+            pipeline only, so EHR and consultant deals never enter these flows by stage.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2 · AT A GLANCE ============ -->
+  <section>
+    <h2><span class="num">2</span> · The four workflows at a glance</h2>
+    <p class="lede">Health verdicts are based on the actual Jul 27 configuration — triggers, guards, copy, and
+      the compliance notes from the earlier optimization pass.</p>
+    <div class="cards">
+      <div class="card">
+        <h3>Missed Meeting <span style="color:var(--muted);font-weight:600">(was A4)</span></h3>
+        <p>Chases no-shows and cancellations across five event tags. Real cal.com links in both follow-ups.
+          One compliance-risk sentence in the breakup email.</p>
+        <div class="foot"><span><b>1</b> in flight</span><span class="chip ok"><span class="dot"></span>Healthy · one bad line</span></div>
+      </div>
+      <div class="card">
+        <h3>Contract Sent <span style="color:var(--muted);font-weight:600">(was Contract Signature Follow-Up)</span></h3>
+        <p>14-day signature chase. Fires reliably now (12 emails, 2 link clicks, 30 days) — but it's sending the
+          old corporate copy, including the revenue-share FAQ.</p>
+        <div class="foot"><span><b>4</b> in flight</span><span class="chip crit"><span class="dot"></span>Firing · old copy</span></div>
+      </div>
+      <div class="card">
+        <h3>Booking Rejected <span style="color:var(--muted);font-weight:600">(was RCM-Rejected)</span></h3>
+        <p>Objection-handling drip for declined meetings. Newly wired Jul 21, hasn't fired yet — which is lucky,
+          because its last email has subject "test."</p>
+        <div class="foot"><span><b>0</b> in flight</span><span class="chip crit"><span class="dot"></span>New wiring · "test" email</span></div>
+      </div>
+      <div class="card">
+        <h3>Partner Referral</h3>
+        <p>Onboarded-partner activation drip. Front half is the optimized copy; back half is still the old
+          corporate filler with no ask and no link.</p>
+        <div class="foot"><span><b>0</b> in flight</span><span class="chip warn"><span class="dot"></span>Half-upgraded</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3 · COVERAGE ============ -->
+  <section>
+    <h2><span class="num">3</span> · Pipeline coverage — where automation listens now</h2>
+    <p class="lede">Stage triggers all point at the <b>Third Parties (RCM)</b> pipeline. Highlighted rows are
+      stages where a deal sits and <i>nothing</i> happens automatically.</p>
+    <div class="cov">
+      <div class="row"><div class="stage"><span class="i">01</span><b>Contacted</b></div>
+        <div class="what"><span class="dot d"></span>No automation. Outreach is manual (Unresponsive Contact Outreach may
+          cover part of this — not re-captured).</div></div>
+      <div class="row silent"><div class="stage"><span class="i">02</span><b>Demo Booked</b></div>
+        <div class="what"><span class="dot r"></span>No confirmation or reminder — same gap as the clinic funnel. The five
+          no-show/cancel tags that feed Missed Meeting get applied after the damage.</div></div>
+      <div class="row silent"><div class="stage"><span class="i">03</span><b>Demo Attended</b></div>
+        <div class="what"><span class="dot r"></span>No automation between demo and "Ready to sign".</div></div>
+      <div class="row silent"><div class="stage"><span class="i">04</span><b>Ready to Sign</b></div>
+        <div class="what"><span class="dot r"></span>No automation between verbal yes and contract out.</div></div>
+      <div class="row"><div class="stage"><span class="i">05</span><b>Contract Sent</b></div>
+        <div class="what"><span class="dot g"></span><b>Contract Sent fires here</b> (stage trigger + <code>partnership-contract-sent</code>
+          tag) — reliable now, but sending the old copy.</div></div>
+      <div class="row silent"><div class="stage"><span class="i">06</span><b>RCM Kick-off</b></div>
+        <div class="what"><span class="dot r"></span>No automation — no welcome, no kickoff sequence for a partner who just signed.</div></div>
+      <div class="row"><div class="stage"><span class="i">07</span><b>Waiting for Referrals</b></div>
+        <div class="what"><span class="dot g"></span><b>Partner Referral fires here</b> (stage trigger + <code>waiting referral</code> tag).</div></div>
+      <div class="row"><div class="stage"><span class="i">08</span><b>No Show</b></div>
+        <div class="what"><span class="dot y"></span>The stage triggers nothing, but Missed Meeting's five tags cover the same
+          events — as long as someone applies them.</div></div>
+      <div class="row silent"><div class="stage"><span class="i">—</span><b>Third Parties (EHR &amp; Consultants) pipeline</b></div>
+        <div class="what"><span class="dot r"></span><b>All 8 stages unwired.</b> Contract sent, no-show, closed-won — none of it
+          reaches these workflows by stage. EHR/consultant deals only enter via manually applied tags.</div></div>
+    </div>
+  </section>
+
+  <!-- ============ 4 · DEEP DIVES ============ -->
+  <section>
+    <h2><span class="num">4</span> · Step by step, with the real copy</h2>
+    <p class="lede">Template variables like <code>{{contact.first_name}}</code> render at send time; text in red
+      boxes is literal text the partner sees.</p>
+
+    <!-- ===== Missed Meeting ===== -->
+    <div class="wf">
+      <div class="hd">
+        <div class="top">
+          <h3>Missed Meeting <span class="was">v14 · edited Jul 20</span></h3>
+          <span class="chip ok"><span class="dot"></span>Healthy · one bad line</span>
+        </div>
+        <div class="meta">
+          <span>In flight <b>1</b></span><span>Duration <b>~5 days</b></span>
+          <span>Touches <b>3 emails · 1 SMS · 1 task</b></span>
+          <span>Stop on reply <span class="good">ON — new</span></span>
+          <span>Re-entry <span class="bad">OFF — was ON</span></span>
+        </div>
+      </div>
+      <div class="trig new"><span class="t">Trigger · rewired</span> Any of five tags: <code>partnership-intro-no-show</code>,
+        <code>partnership-intro-canceled</code>, <code>partnership-demo-no-show</code>, <code>partnership-demo-canceled</code>,
+        <code>partnership-contract-no-show</code>. Replaces the old single tag + webhook.</div>
+      <div class="steps">
+        <div class="step"><div class="when">Day 0</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 1</span><span class="nm">Instant reschedule ask</span></div>
+          <p class="subj">Subject: <b>"{{contact.first_name}}, missed you on the call"</b> — reply-based rebook ask.</p>
+        </div></div>
+        <div class="step"><div class="when">+30 min</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge sms">SMS</span><span class="nm">Text nudge</span></div>
+          <div class="quote">"Hey {{contact.first_name}}, looks like we missed each other. No worries, reply with a good
+            time and I'll resend the invite."</div>
+        </div></div>
+        <div class="step gray"><div class="when">Day 2</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge task">Task</span><span class="nm">"Call – Reschedule Missed Meeting" → Adam</span></div>
+        </div></div>
+        <div class="step"><div class="when">Day 2</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 2</span><span class="nm">Soft follow-up</span><span class="flag good">real cal.com link ✓</span></div>
+          <p class="subj">Subject: <b>"one more try, {{contact.first_name}}"</b> — calendar link to the board-of-advisor slot.</p>
+        </div></div>
+        <div class="step warn"><div class="when">Day 5</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 3</span><span class="nm">Breakup + referral pivot</span><span class="flag">compliance-risk line</span></div>
+          <p class="subj">Subject: <b>"{{contact.first_name}}, still worth a conversation?"</b> — real booking link ✓</p>
+          <p class="note crit">Body says <i>"We pay referral fees for every clinic that signs on."</i> The compliance
+            cleanup ruled out tying dollars to signed clinics anywhere in partner copy — the model is a flat monthly
+            marketing fee. This line resurrects the exact language that was purged.</p>
+        </div></div>
+        <div class="step gray"><div class="when">Day 5</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge tag">Tag</span><span class="nm">Removes</span> <code>no-show</code> <span style="color:var(--muted)">· sequence ends</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ===== Contract Sent ===== -->
+    <div class="wf">
+      <div class="hd">
+        <div class="top">
+          <h3>Contract Sent <span class="was">v7 · edited Jul 17</span></h3>
+          <span class="chip crit"><span class="dot"></span>Firing · old copy</span>
+        </div>
+        <div class="meta">
+          <span>In flight <b>4</b></span><span>Duration <b>~14 days</b></span>
+          <span>Touches <b>4 emails · 2 SMS · 3 tasks</b></span>
+          <span>Stop on reply <span class="good">ON — new</span></span>
+          <span>30-day sends <b>12 emails · 6–8 opened · 2 clicks · 0 replies</b></span>
+          <span>SMS <span class="good">21/21 delivered — was 0%</span></span>
+        </div>
+      </div>
+      <div class="trig new"><span class="t">Trigger · rewired</span> Deal enters <b>"Contract Sent"</b> in the RCM pipeline, or
+        tag <code>partnership-contract-sent</code> is added. The old broken Contact Tag trigger (2,650 attempts, 0 matches) is gone.</div>
+      <div class="steps">
+        <div class="step"><div class="when">Day 0</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 1</span><span class="nm">Agreement link</span><span class="flag good">{{document.url}} link ✓</span></div>
+          <p class="subj">Subject: <b>"Your Agreement Link is Ready"</b> — "Hello {{contact.name}}", corporate register,
+            but the signing link is real.</p>
+        </div></div>
+        <div class="step"><div class="when">Day 2</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge sms">SMS 1</span><span class="nm">Receipt check</span><span class="flag">no link</span></div>
+          <div class="quote">"Just checking in to confirm you received the agreement email we sent…" — a dead-end ask;
+            the optimized version with the signing link never shipped.</div>
+        </div></div>
+        <div class="step warn"><div class="when">Day 4</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 2</span><span class="nm">Revenue-share FAQ</span><span class="flag">compliance + content</span></div>
+          <p class="subj">Subject: <b>"Understanding Our Revenue Share Terms - FAQs"</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hello {{contact.name}},</p>
+            <p>We hope this message finds you well. To help clarify some common questions about our revenue share terms,
+              we've put together a brief FAQ below.</p>
+            <p>Q: What is the revenue share structure?<br>A: Our revenue share model is designed to be fair and
+              transparent. It outlines how earnings are distributed between parties.</p>
+            <p>Q: When do I receive payments?<br>A: Payments are processed monthly, based on the revenue generated in
+              the prior month.</p>
+            <p>Q: Are there any fees or deductions?<br>A: Any applicable fees are clearly detailed in our agreement to
+              ensure full transparency.</p>
+            <p>Q: Can the revenue share terms change?<br>A: Any changes will be communicated in advance and require
+              mutual agreement.</p>
+            <p>Best regards,<br>{{user.name}}</p></div>
+          </details>
+          <p class="note crit">Flagged in the Jul optimization as wrong on two counts and still live: the model is a
+            <b>flat monthly fee</b> (revenue-share language is a compliance risk under AKS), and every answer is
+            circular — it tells a partner you won't tell them things. The replacement copy exists and was never pasted in.</p>
+        </div></div>
+        <div class="step"><div class="when">Day 7</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 3</span><span class="nm">Reminder</span><span class="flag">no link</span></div>
+          <p class="subj">Subject: <b>"Friendly Reminder to Please Sign the Agreement"</b> — asks them to sign without
+            giving them anything to click. Call task fires alongside.</p>
+        </div></div>
+        <div class="step"><div class="when">Day 10</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge sms">SMS 2</span><span class="nm">Reminder</span><span class="flag">no link</span></div>
+          <div class="quote">"This is a friendly reminder to complete your agreement signature to proceed with your
+            onboarding. Please take a moment to sign."</div>
+        </div></div>
+        <div class="step"><div class="when">Day 14</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 4</span><span class="nm">Founder-call offer</span><span class="flag good">calendar link ✓</span></div>
+          <p class="subj">Subject: <b>"Let's Address Any Concerns—Schedule a Call with Our Founder"</b> — the best idea
+            in the flow, kept. Escalation task fires alongside.</p>
+        </div></div>
+        <div class="step warn"><div class="when">Day 14</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge branch">If/Else</span><span class="nm">Tag check: <code>agreement-signed</code></span><span class="flag">decorative — both branches end</span></div>
+          <p class="note crit">The signed-check sits at the very bottom and neither branch does anything. A partner who
+            signs on Day 1 still gets all six touches. The recommended fix — a workflow Goal that exits on signature —
+            was not implemented.</p>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ===== Booking Rejected ===== -->
+    <div class="wf">
+      <div class="hd">
+        <div class="top">
+          <h3>Booking Rejected <span class="was">v7 · edited Jul 21</span></h3>
+          <span class="chip crit"><span class="dot"></span>New wiring · "test" email</span>
+        </div>
+        <div class="meta">
+          <span>In flight <b>0</b></span><span>Duration <b>~7 days</b></span>
+          <span>Touches <b>4 emails · 2 SMS · 2 tasks</b></span>
+          <span>Stop on reply <span class="good">ON</span></span>
+          <span>All-time sends <b>0 — wired Jul 21</b></span>
+        </div>
+      </div>
+      <div class="trig new"><span class="t">Trigger · rewired</span> Tag <code>meeting-declined (third parties)</code> — or
+        <code>partnership-intro-canceled</code>, which <b>also triggers Missed Meeting</b>. A canceled intro currently
+        enters two sequences at once.</div>
+      <div class="steps">
+        <div class="step"><div class="when">Day 0</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 1</span><span class="nm">"no worries" — timing or fit?</span></div>
+          <p class="subj">Good instinct (diagnose the decline), lowercase style throughout, no sign-off, no link.</p>
+        </div></div>
+        <div class="step"><div class="when">Day 1</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge task">Task</span><span class="nm">Call task → Adam</span> <span style="color:var(--muted)">· then a gut-check SMS</span></div>
+        </div></div>
+        <div class="step"><div class="when">Day 3</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 2</span><span class="nm">CMS rule change (2025/2026 rates)</span></div>
+          <p class="subj">Subject: <b>"{{contact.first_name}}, Medicare changed the rules last year, in your favor"</b> —
+            the strongest email in the flow. No booking link to act on it.</p>
+        </div></div>
+        <div class="step warn"><div class="when">Day 5</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 3</span><span class="nm">Second-look ask</span><span class="flag">dangling {{business.name}}</span></div>
+          <p class="subj">Subject: <b>"{{contact.first_name}}, one question before I stop emailing"</b></p>
+          <p class="note crit">Body contains a stray "<code>{{business.name}}</code>" sitting alone mid-paragraph —
+            renders as "…the practices you work with. Tile Health" with no sentence around it.</p>
+        </div></div>
+        <div class="step warn"><div class="when">Day 7</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 4</span><span class="nm">Referral-angle pivot</span><span class="flag">subject is literally "test"</span></div>
+          <p class="subj">Subject: <b>"test"</b></p>
+          <p class="note crit">Live, published, and last in the sequence: partners would receive an email with subject
+            "test." The body also promises <i>"you get a referral fee"</i> — the volume-tied payment language the
+            compliance cleanup ruled out. This workflow has never fired; fix both before it does.</p>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ===== Partner Referral ===== -->
+    <div class="wf">
+      <div class="hd">
+        <div class="top">
+          <h3>Partner Referral <span class="was">v12 · edited Jul 17</span></h3>
+          <span class="chip warn"><span class="dot"></span>Half-upgraded</span>
+        </div>
+        <div class="meta">
+          <span>In flight <b>0</b></span><span>Duration <b>~30 days</b></span>
+          <span>Touches <b>3 emails · 1 SMS · 1 task</b></span>
+          <span>Stop on reply <span class="good">ON — new</span></span>
+        </div>
+      </div>
+      <div class="trig new"><span class="t">Trigger · rewired</span> Deal enters <b>"Waiting for Referrals"</b> (RCM pipeline),
+        or tag <code>waiting referral</code> is added.</div>
+      <div class="steps">
+        <div class="step"><div class="when">Day 0</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 1</span><span class="nm">"How referrals work"</span><span class="flag good">optimized copy ✓</span></div>
+          <p class="subj">Subject: <b>"{{contact.first_name}} — how referrals work (30 seconds, one email)"</b> — the
+            reply-based referral process, live word for word.</p>
+        </div></div>
+        <div class="step"><div class="when">Day 3</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 2</span><span class="nm">30-second clinic filter</span><span class="flag good">optimized copy ✓ · threshold filled (50+)</span></div>
+          <p class="subj">Subject: <b>"How to spot an APCM clinic in 30 seconds"</b> — includes the forwardable intro.</p>
+        </div></div>
+        <div class="step warn"><div class="when">Day 7</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge sms">SMS</span><span class="nm">Old corporate ask</span><span class="flag">not upgraded</span></div>
+          <div class="quote">"We appreciate you partnering with us! Please take a moment to submit any referrals you may
+            have." — still asks them to "submit" with no way to submit; the rewritten reply-based SMS never shipped.</div>
+        </div></div>
+        <div class="step warn"><div class="when">Day 14</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 3</span><span class="nm">"Partner Program Update"</span><span class="flag">empty update · {{contact.name}}</span></div>
+          <p class="note crit">Still the placeholder update: "we wanted to check in and provide you with a brief update"
+            followed by no update. The replacement ("The math on one referral," with the $6,900/mo · $83K/yr example)
+            was written and never pasted in.</p>
+        </div></div>
+        <div class="step warn"><div class="when">Day 21–30</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge branch">If/Else</span><span class="nm">Task, then tag/win checks</span><span class="flag">both paths do nothing</span></div>
+          <p class="note crit">Day-21 call task fires, then a <code>referral-sent</code> tag check nested with an
+            opportunity-won check — and every branch dead-ends with no action. The engaged-vs-unengaged split
+            (call ask vs monthly cadence) from the optimization doc was not built.</p>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5 · ISSUES ============ -->
+  <section>
+    <h2><span class="num">5</span> · Open issues</h2>
+    <p class="lede">Ranked. The first three are visible to partners the moment the relevant workflow fires.</p>
+    <div class="issues">
+      <div class="irow"><span class="sev high">High</span><span class="where">Booking Rejected · Email 4</span>
+        <span>Subject is "test" + "you get a referral fee" body</span>
+        <span class="impact">A published sequence ends on a test email with compliance-risk payment language. Hasn't fired yet — fix before it does.</span></div>
+      <div class="irow"><span class="sev high">High</span><span class="where">Contract Sent · Email 2</span>
+        <span>"Revenue Share Terms" FAQ still live</span>
+        <span class="impact">Contradicts the flat-fee model, resurrects language flagged for AKS risk, and answers nothing. 4 partners in flight.</span></div>
+      <div class="irow"><span class="sev high">High</span><span class="where">Triggers</span>
+        <span><code>partnership-intro-canceled</code> fires two workflows</span>
+        <span class="impact">Canceled intros get Missed Meeting and Booking Rejected simultaneously — duplicate, conflicting messages.</span></div>
+      <div class="irow"><span class="sev high">High</span><span class="where">Missed Meeting · Email 3</span>
+        <span>"We pay referral fees for every clinic that signs on"</span>
+        <span class="impact">Volume-tied payment language in customer-facing copy; compliance cleanup said never to write this.</span></div>
+      <div class="irow"><span class="sev high">High</span><span class="where">Contract Sent · structure</span>
+        <span>Signing link only in Email 1; signed-check is decorative</span>
+        <span class="impact">2 clicks, 0 replies, 0 exits: reminders with nothing to click, and signers keep getting chased.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">Partner Referral · Days 7–30</span>
+        <span>Back half never upgraded (SMS, Day-14 update, Day-21 branch)</span>
+        <span class="impact">The activation flow goes silent exactly when partners need proof and a nudge.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">All 14 emails</span>
+        <span>No from-name / from-email; {{contact.name}} vs first_name mixed</span>
+        <span class="impact">"Hello Memorial Hermann RCM Services" energy, and deliverability rides on account defaults.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">EHR pipeline</span>
+        <span>Third Parties (EHR &amp; Consultants) pipeline fully unwired</span>
+        <span class="impact">EHR/consultant deals never enter any of these flows by stage; tags only.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">Booking Rejected · Email 3</span>
+        <span>Dangling <code>{{business.name}}</code> mid-paragraph</span>
+        <span class="impact">Renders as a stray "Tile Health" with no sentence around it.</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 6 · RECOMMENDATIONS ============ -->
+  <section>
+    <h2><span class="num">6</span> · Recommendations</h2>
+    <p class="lede">In order. Items 1–3 are same-day fixes; the copy for most of this already exists in the two
+      optimization docs and just needs pasting.</p>
+    <div class="rec"><div class="n">1</div><div>
+      <h3>Defuse Booking Rejected before it fires.</h3><span class="eff">15 min</span>
+      <p>Replace the "test" subject, rewrite the referral-fee sentence (flat-fee framing), fix the dangling
+        {{business.name}}, and remove <code>partnership-intro-canceled</code> from this workflow's triggers so
+        canceled intros belong to Missed Meeting alone.</p>
+    </div></div>
+    <div class="rec"><div class="n">2</div><div>
+      <h3>Ship the Contract Sent rewrite that already exists.</h3><span class="eff">30 min</span>
+      <p>The full replacement copy — flat-fee FAQ with real answers, signing link in every touch, first-name merge
+        fields — is sitting in contract_signature_followup_optimized.md. Paste it in and delete the revenue-share
+        email. This flow has 4 partners in it right now.</p>
+    </div></div>
+    <div class="rec"><div class="n">3</div><div>
+      <h3>Scrub referral-fee language everywhere.</h3><span class="eff">15 min</span>
+      <p>Missed Meeting Email 3 and Booking Rejected Email 4 both tie payment to signed clinics. Reframe as
+        introductions + flat monthly marketing fee, per the compliance cleanup.</p>
+    </div></div>
+    <div class="rec"><div class="n">4</div><div>
+      <h3>Make signature an exit, not a decoration.</h3><span class="eff">~20 min</span>
+      <p>Convert the bottom if/else into a workflow Goal on the <code>agreement-signed</code> tag (or document-signed
+        event) set to end the workflow, so signers stop receiving reminders mid-sequence.</p>
+    </div></div>
+    <div class="rec"><div class="n">5</div><div>
+      <h3>Finish Partner Referral's back half.</h3><span class="eff">~45 min</span>
+      <p>Swap the Day-7 SMS for the reply-based version, replace the Day-14 empty update with "The math on one
+        referral" ($6,900/mo · $83K/yr), and wire the Day-21 branch: engaged → 15-minute list-review call ask;
+        unengaged → monthly cadence.</p>
+    </div></div>
+    <div class="rec"><div class="n">6</div><div>
+      <h3>Wire the EHR/consultants pipeline.</h3><span class="eff">~30 min</span>
+      <p>Duplicate the stage triggers for the EHR pipeline's "contract sent" and post-close stages so those deals
+        enter the same flows without manual tagging. Then a demo confirmation/reminder mini-flow, same as the
+        clinic funnel.</p>
+    </div></div>
+  </section>
+
+  <footer>
+    Built from HAR captures of the GoHighLevel workflow builder (Jul 16 baseline vs Jul 27, 2026): full workflow
+    definitions including step graphs, message templates, trigger conditions, and 30-day delivery statistics.
+    Internal tasks are assigned to Adam Elnaba. Unresponsive Contact Outreach (v3, Jul 3) was not re-captured and
+    is not assessed. Template variables like {{contact.first_name}} render as the contact's real data at send
+    time; text shown in red boxes is literal text the partner sees.
+  </footer>
+
+</div>

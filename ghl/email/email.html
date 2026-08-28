@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Tile Healthcare</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #eef3f3;
+        color: #1a2e2d;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        line-height: 1.6;
+      }
+      table {
+        border-collapse: collapse;
+      }
+      img {
+        border: 0;
+        outline: none;
+        text-decoration: none;
+        -ms-interpolation-mode: bicubic;
+        display: block;
+      }
+      a {
+        color: #1e4e4d;
+      }
+      .container {
+        max-width: 600px;
+        width: 100%;
+        background-color: #ffffff;
+        overflow: hidden;
+      }
+      .header {
+        background-color: #1e4e4d;
+        padding: 32px 24px;
+        text-align: center;
+      }
+      .content {
+        padding: 32px 28px;
+      }
+      .footer {
+        background-color: #f3f7f7;
+        padding: 24px 28px;
+        text-align: center;
+        font-size: 14px;
+        color: #5b6f6e;
+        border-top: 1px solid #d7e3e2;
+      }
+      .footer p {
+        margin: 8px 0;
+      }
+      .highlight {
+        color: #1e4e4d;
+        font-weight: 600;
+      }
+      .small {
+        font-size: 12px;
+        color: #8a9e9d;
+      }
+      @media only screen and (max-width: 620px) {
+        .content,
+        .footer {
+          padding-left: 20px !important;
+          padding-right: 20px !important;
+        }
+      }
+    </style>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #eef3f3">
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      style="background-color: #eef3f3; padding: 32px 12px"
+    >
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            class="container"
+            width="600"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="
+              max-width: 600px;
+              width: 100%;
+              background-color: #ffffff;
+              overflow: hidden;
+              box-shadow: 0 2px 8px rgba(30, 78, 77, 0.1);
+            "
+          >
+            <!-- Header -->
+            <tr>
+              <td
+                class="header"
+                style="
+                  background-color: #1e4e4d;
+                  padding: 32px 24px;
+                  text-align: center;
+                "
+              >
+                <img
+                  src="https://tilehealthcare.com/apcm/logo-white.webp"
+                  alt="Tile Health"
+                  width="160"
+                  style="margin: 0 auto; width: 160px; height: auto"
+                />
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td class="content" style="padding: 32px 28px">
+                Hi {{contact.first_name}},
+                <br />
+                <br />
+                Haven't seen the file come through yet, which usually means one
+                of two things. Either it's sitting on someone's list and hasn't
+                happened, or something in your system didn't look like what we
+                saw on the call.
+                <br />
+                <br />
+                If it's the second one, tell me and I'll get on a screen share
+                today. It's a five minute fix and I'd rather do that than have
+                you fight with it.
+                <br />
+                Guide's here if you need it again:
+                <br />
+                {{custom_values.patient_data_guide_link}}
+                <br />
+                <br />
+                Best regards,
+                <br />
+                Abe
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td
+                class="footer"
+                style="
+                  background-color: #f3f7f7;
+                  padding: 24px 28px;
+                  text-align: center;
+                  font-size: 14px;
+                  color: #5b6f6e;
+                  border-top: 1px solid #d7e3e2;
+                "
+              >
+                <p style="margin: 8px 0">
+                  <span
+                    class="highlight"
+                    style="color: #1e4e4d; font-weight: 600"
+                    >Tile Health.</span
+                  >
+                  APCM for medical practices
+                </p>
+                <p style="margin: 8px 0">
+                  <a
+                    href="https://tilehealthcare.com"
+                    style="color: #1e4e4d; text-decoration: none"
+                    >tilehealthcare.com</a
+                  >
+                </p>
+                <hr
+                  style="
+                    border: none;
+                    border-top: 1px solid #d7e3e2;
+                    margin: 16px 0;
+                  "
+                />
+                <p
+                  class="small"
+                  style="margin: 8px 0; font-size: 12px; color: #8a9e9d"
+                >
+                  ©
+                  <script>
+                    document.write(new Date().getFullYear());
+                  </script>
+                  Tile Health. All rights reserved.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

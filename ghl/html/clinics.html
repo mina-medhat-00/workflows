@@ -1,0 +1,670 @@
+<meta charset="utf-8">
+<title>Tile Health — Clinics Automation Map v2</title>
+<style>
+  :root{
+    --bg:#F6F9F8; --surface:#FFFFFF; --ink:#182420; --muted:#5B6B65; --line:#DAE3DF;
+    --accent:#0E7A68; --accent-soft:#E2F0EC; --accent-ink:#0A5C4F;
+    --sms:#33599F; --sms-soft:#E4EAF6;
+    --ok:#177A45; --ok-soft:#E1F1E7;
+    --warn:#996200; --warn-soft:#F7EDD8;
+    --crit:#B23327; --crit-soft:#F9E5E2;
+    --dead:#6B7A74; --dead-soft:#EAEEEC;
+    --code-bg:#EDF2F0;
+    --shadow:0 1px 2px rgba(24,36,32,.05),0 4px 14px rgba(24,36,32,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0E1412; --surface:#151C19; --ink:#E3EAE6; --muted:#92A39B; --line:#28332E;
+      --accent:#3FBFA4; --accent-soft:#12302A; --accent-ink:#6BD3BC;
+      --sms:#7FA3E0; --sms-soft:#1B2740;
+      --ok:#4CC077; --ok-soft:#12301E;
+      --warn:#D9A13B; --warn-soft:#33270E;
+      --crit:#E06456; --crit-soft:#3A1713;
+      --dead:#8A9992; --dead-soft:#1E2723;
+      --code-bg:#1C2622;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.3);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1124px;margin:0 auto;padding:56px 24px 80px}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}
+  h1{font-size:44px;line-height:1.08;letter-spacing:-.02em;margin:10px 0 16px;font-weight:800}
+  .sub{max-width:620px;color:var(--muted);font-size:18px;margin:0 0 14px}
+  .srcnote{color:var(--muted);font-size:14px;margin:0 0 28px}
+  .srcnote b{color:var(--ink)}
+  .tiles{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 26px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+    padding:18px 22px;min-width:130px}
+  .tile .n{font-size:30px;font-weight:800;line-height:1}
+  .tile .l{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+  .tile.ok .n{color:var(--ok)} .tile.bad .n{color:var(--crit)}
+  section{margin-top:64px}
+  h2{font-size:28px;letter-spacing:-.01em;margin:0 0 8px;font-weight:800}
+  h2 .num{color:var(--accent)}
+  .lede{max-width:640px;color:var(--muted);margin:0 0 22px}
+  code,.tag{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em;
+    background:var(--code-bg);border-radius:6px;padding:2px 7px}
+  /* chips + verdicts */
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;border-radius:999px;padding:5px 12px;white-space:nowrap}
+  .chip .dot{width:7px;height:7px;border-radius:50%}
+  .chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.ok .dot{background:var(--ok)}
+  .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.warn .dot{background:var(--warn)}
+  .chip.crit{background:var(--crit-soft);color:var(--crit)} .chip.crit .dot{background:var(--crit)}
+  .chip.dead{background:var(--dead-soft);color:var(--dead)} .chip.dead .dot{background:var(--dead)}
+  /* glance cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+    padding:20px 22px;display:flex;flex-direction:column}
+  .card h3{margin:0 0 8px;font-size:17px}
+  .card p{margin:0;color:var(--muted);font-size:14.5px}
+  .card .foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);display:flex;
+    justify-content:space-between;align-items:center;gap:10px;font-size:14px;color:var(--muted);margin-top:16px}
+  .card .foot b{color:var(--ink);font-size:16px}
+  /* changes */
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:20px 24px}
+  .panel h3{margin:0 0 12px;font-size:15px;text-transform:uppercase;letter-spacing:.08em}
+  .panel.fixed h3{color:var(--ok)} .panel.open h3{color:var(--crit)}
+  .panel ul{margin:0;padding-left:18px}
+  .panel li{margin:0 0 10px;font-size:14.5px}
+  .panel li:last-child{margin-bottom:0}
+  .panel li .why{color:var(--muted)}
+  /* coverage table */
+  .cov{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+  .cov .row{display:grid;grid-template-columns:250px 1fr;border-top:1px solid var(--line)}
+  .cov .row:first-child{border-top:0}
+  .cov .row.silent{background:var(--crit-soft)}
+  .cov .stage{padding:16px 20px;border-right:1px solid var(--line);display:flex;gap:12px;align-items:baseline}
+  .cov .stage .i{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted)}
+  .cov .stage b{font-size:15px}
+  .cov .what{padding:16px 20px;font-size:14.5px;color:var(--muted)}
+  .cov .what b{color:var(--ink)}
+  .cov .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:1px}
+  .dot.g{background:var(--ok)} .dot.y{background:var(--warn)} .dot.r{background:var(--crit)} .dot.d{background:var(--dead)}
+  /* workflow deep-dives */
+  .wf{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+    margin-top:26px;overflow:hidden}
+  .wf .hd{padding:24px 28px 0}
+  .wf .hd .top{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}
+  .wf h3{margin:0;font-size:22px;letter-spacing:-.01em}
+  .wf h3 .was{font-size:13px;color:var(--muted);font-weight:600;margin-left:10px}
+  .meta{display:flex;flex-wrap:wrap;gap:26px;margin:14px 0 18px;font-size:14px;color:var(--muted)}
+  .meta b{color:var(--ink)}
+  .meta .bad{color:var(--crit);font-weight:700}
+  .meta .good{color:var(--ok);font-weight:700}
+  .trig{margin:0 28px 6px;background:var(--accent-soft);border-radius:10px;padding:16px 20px;font-size:14.5px;color:var(--ink)}
+  .trig .t{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--accent-ink);margin-right:12px;text-transform:uppercase}
+  .trig.new{outline:2px solid var(--accent);outline-offset:-2px}
+  .steps{padding:14px 28px 26px}
+  .step{display:grid;grid-template-columns:84px 26px 1fr;column-gap:0;position:relative}
+  .step .when{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--muted);padding-top:6px;text-align:right;padding-right:14px;white-space:nowrap}
+  .rail{position:relative}
+  .rail:before{content:"";position:absolute;left:12px;top:0;bottom:0;width:2px;background:var(--line)}
+  .step:first-child .rail:before{top:10px}
+  .step:last-child .rail:before{bottom:auto;height:10px}
+  .rail .node{position:absolute;left:6px;top:5px;width:10px;height:10px;border-radius:50%;
+    background:var(--surface);border:3px solid var(--accent)}
+  .step.warn .rail .node{border-color:var(--crit)}
+  .step.gray .rail .node{border-color:var(--dead)}
+  .body{padding:0 0 26px 14px;min-width:0}
+  .step:last-child .body{padding-bottom:4px}
+  .bhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .badge{font-size:11px;font-weight:800;letter-spacing:.08em;border-radius:6px;padding:4px 9px;text-transform:uppercase}
+  .badge.email{background:var(--accent-soft);color:var(--accent-ink)}
+  .badge.sms{background:var(--sms-soft);color:var(--sms)}
+  .badge.task{background:transparent;color:var(--muted);border:1.5px dashed var(--muted)}
+  .badge.tag{background:var(--dead-soft);color:var(--dead)}
+  .badge.branch{background:var(--warn-soft);color:var(--warn)}
+  .badge.loop{background:var(--sms-soft);color:var(--sms)}
+  .bhead .nm{font-weight:700;font-size:16px}
+  .flag{font-size:12px;font-weight:700;background:var(--crit-soft);color:var(--crit);border-radius:6px;padding:4px 9px}
+  .flag.good{background:var(--ok-soft);color:var(--ok)}
+  .subj{margin:8px 0 0;font-size:14.5px;color:var(--muted)}
+  .subj b{color:var(--ink);font-weight:600}
+  .quote{margin:10px 0 0;padding:2px 0 2px 16px;border-left:3px solid var(--line);
+    font-family:Georgia,'Times New Roman',serif;font-size:15.5px}
+  details{margin-top:8px}
+  summary{cursor:pointer;font-size:14px;font-weight:700;color:var(--accent-ink)}
+  details .quote{margin-top:10px}
+  .note{margin:10px 0 0;font-size:13.5px;color:var(--muted)}
+  .note.crit{color:var(--crit)}
+  /* issues table */
+  .issues{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+  .irow{display:grid;grid-template-columns:110px 150px 1fr 1fr;gap:16px;padding:16px 20px;border-top:1px solid var(--line);font-size:14.5px;align-items:start}
+  .irow:first-child{border-top:0}
+  .irow .where{font-weight:700}
+  .irow .impact{color:var(--muted)}
+  .sev{font-size:10.5px;font-weight:800;letter-spacing:.1em;border-radius:6px;padding:4px 9px;text-transform:uppercase;justify-self:start}
+  .sev.high{background:var(--crit-soft);color:var(--crit)}
+  .sev.med{background:var(--dead-soft);color:var(--dead)}
+  /* recs */
+  .rec{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+    padding:22px 26px;margin-top:16px;display:grid;grid-template-columns:38px 1fr;gap:16px}
+  .rec .n{width:28px;height:28px;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);
+    font-weight:800;display:flex;align-items:center;justify-content:center}
+  .rec h3{margin:0;font-size:17px;display:inline}
+  .rec .eff{font-size:11px;font-weight:800;letter-spacing:.08em;background:var(--dead-soft);color:var(--dead);
+    border-radius:6px;padding:4px 9px;margin-left:10px;text-transform:uppercase;vertical-align:2px}
+  .rec p{margin:8px 0 0;color:var(--muted);font-size:14.5px}
+  footer{margin-top:70px;border-top:1px solid var(--line);padding-top:24px;max-width:660px;color:var(--muted);font-size:13.5px}
+  @media(max-width:760px){
+    h1{font-size:32px}
+    .cov .row{grid-template-columns:1fr}
+    .cov .stage{border-right:0;padding-bottom:0}
+    .irow{grid-template-columns:90px 1fr}
+    .step{grid-template-columns:64px 26px 1fr}
+  }
+</style>
+
+<div class="wrap">
+
+  <div class="kicker">Tile Health · GoHighLevel · Clinics Funnel · v2</div>
+  <h1>The clinic drip campaign, after the July rebuild</h1>
+  <p class="sub">A step-by-step map of the four clinic automations as they run today — what triggers each one,
+    every email and text a prospect gets (with the real copy), what the rebuild fixed, and what's still broken.</p>
+  <p class="srcnote">Source: live workflow definitions + delivery stats exported from GoHighLevel on <b>Jul 21, 2026</b>,
+    re-verified against fresh captures on <b>Jul 27, 2026</b> — no builder changes since Jul 20; stats below are the
+    Jul 27 numbers. Supersedes the Jul 15 map. Delivery stats cover the last 30 days.</p>
+
+  <div class="tiles">
+    <div class="tile"><div class="n">4</div><div class="l">Workflows</div></div>
+    <div class="tile"><div class="n">10</div><div class="l">Customer emails</div></div>
+    <div class="tile"><div class="n">4</div><div class="l">Customer texts</div></div>
+    <div class="tile"><div class="n">5</div><div class="l">Internal tasks</div></div>
+    <div class="tile"><div class="n">2</div><div class="l">Contacts in flight</div></div>
+    <div class="tile ok"><div class="n">4</div><div class="l">Fixes shipped</div></div>
+    <div class="tile bad"><div class="n">7</div><div class="l">Issues open</div></div>
+  </div>
+
+  <!-- ============ 1 · WHAT CHANGED ============ -->
+  <section>
+    <h2><span class="num">1</span> · What changed since the Jul 15 map</h2>
+    <p class="lede">All four workflows were touched between Jul 16 and Jul 20. The wiring problems are mostly
+      fixed; the copy problems mostly are not.</p>
+    <div class="cols">
+      <div class="panel fixed">
+        <h3>✓ Fixed in the rebuild</h3>
+        <ul>
+          <li><b>Missed Meetings dropped the one-off webhook.</b> It now fires on the <code>clinic-demo-no-show</code>
+            tag, and a second trigger for <code>clinic-demo-canceled</code> was added Jul 20 — cancellations
+            finally get chased too. <span class="why">Re-entry is now allowed, so repeat no-shows re-enroll.</span></li>
+          <li><b>Post Signing moved off the starved "Closed" stage.</b> It now fires when a deal enters
+            <b>Waiting for Patient Data / Eligibility</b> — the onboarding bottleneck the old map flagged as
+            the #1 silent stage. <span class="why">The welcome experience can actually run now.</span></li>
+          <li><b>Contract Sent got a guard branch.</b> After the initial 3-day wait it checks the deal is
+            still sitting in "Contract Sent" before sending anything — signed or dead deals exit silently.
+            A backup <code>clinic-contract-sent</code> tag trigger was also added.</li>
+          <li><b>Monthly Check-in's manual dependency is now documented.</b> A sticky note in the builder
+            spells out that <code>status-live</code> must be applied by hand when a clinic goes live.
+            <span class="why">Documented — but still manual (see issues).</span></li>
+        </ul>
+      </div>
+      <div class="panel open">
+        <h3>✗ Still open</h3>
+        <ul>
+          <li><b>"[Link]" is still literal text</b> in Missed Meetings emails 2 and 3 — and it's no longer
+            hypothetical: the first full cohort (6 contacts) aged out of the chase with <b>0 replies and 0 rebooks</b>.</li>
+          <li><b>Stop-on-reply is still OFF for Missed Meetings.</b> A prospect who replies keeps getting
+            chased by the rest of the sequence.</li>
+          <li><b>No from-name / from-email on any of the 10 emails</b> — delivery still rides on account
+            fallback settings.</li>
+          <li><b>Monthly Check-in still sends a placeholder email</b> — <code>[Month]</code> and
+            <code>$[X]</code> go out exactly as written if the tag is ever applied.</li>
+          <li><b>Post Signing still promises attachments it doesn't have</b>, and still declares
+            "you're live" on a blind Day-7 timer.</li>
+          <li><b>The old copy bugs survived:</b> "Sections sometimes reads a little dense" typo and the
+            <code>{{business.name}}</code> mix-up in Contract Sent.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2 · AT A GLANCE ============ -->
+  <section>
+    <h2><span class="num">2</span> · The four workflows at a glance</h2>
+    <p class="lede">Health verdicts are based on the actual configuration pulled from the builder on Jul 21 —
+      triggers, guards, and copy, not just enrollment counts.</p>
+    <div class="cards">
+      <div class="card">
+        <h3>Missed Meetings <span style="color:var(--muted);font-weight:600">(was A4)</span></h3>
+        <p>Chases no-shows and — new — cancellations: instant email + text, then a call task and two
+          follow-up emails over 5 days. First cohort of 6 completed: 0 rebooked.</p>
+        <div class="foot"><span><b>0</b> in flight</span><span class="chip crit"><span class="dot"></span>Firing · 0 conversions</span></div>
+      </div>
+      <div class="card">
+        <h3>Contract Sent <span style="color:var(--muted);font-weight:600">(was A6)</span></h3>
+        <p>7-day signature chase, now stage-guarded. 3 emails, 2 texts, 2 call tasks; exits anyone who
+          signs or is moved out of the stage.</p>
+        <div class="foot"><span><b>1</b> in flight</span><span class="chip ok"><span class="dot"></span>Working · copy nits</span></div>
+      </div>
+      <div class="card">
+        <h3>Post Signing <span style="color:var(--muted);font-weight:600">(was A7)</span></h3>
+        <p>Onboarding sequence, retargeted at the patient-data bottleneck. Welcome + data chase + go-live
+          note over 7 days.</p>
+        <div class="foot"><span><b>1</b> in flight</span><span class="chip warn"><span class="dot"></span>Rewired · blind timer</span></div>
+      </div>
+      <div class="card">
+        <h3>Monthly Check-in <span style="color:var(--muted);font-weight:600">(was A8)</span></h3>
+        <p>Recurring 30-day billing summary for live clinics. Loops forever once entered — but entry still
+          depends on a manual tag.</p>
+        <div class="foot"><span><b>0</b> in flight</span><span class="chip dead"><span class="dot"></span>Never fired</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3 · COVERAGE ============ -->
+  <section>
+    <h2><span class="num">3</span> · Pipeline coverage — where automation listens now</h2>
+    <p class="lede">Your Clinics Pipeline has 10 stages. Automation now reacts to 4 of them (plus two tag
+      side-doors). Highlighted rows are stages where a clinic sits and <i>nothing</i> happens automatically.</p>
+    <div class="cov">
+      <div class="row"><div class="stage"><span class="i">01</span><b>Contacted</b></div>
+        <div class="what"><span class="dot d"></span>No automation. Cold outreach remains fully manual.</div></div>
+      <div class="row silent"><div class="stage"><span class="i">02</span><b>Demo Booked</b></div>
+        <div class="what"><span class="dot r"></span>No automation — still no demo confirmation or reminder, the cheapest
+          way to prevent the no-shows Missed Meetings then has to chase.</div></div>
+      <div class="row silent"><div class="stage"><span class="i">03</span><b>Demo Attended</b></div>
+        <div class="what"><span class="dot r"></span>No automation between the demo and a verbal yes.</div></div>
+      <div class="row silent"><div class="stage"><span class="i">04</span><b>Ready to Sign</b></div>
+        <div class="what"><span class="dot r"></span>No automation between verbal yes and contract out.</div></div>
+      <div class="row"><div class="stage"><span class="i">05</span><b>Contract Sent</b></div>
+        <div class="what"><span class="dot g"></span><b>Contract Sent fires here</b> (stage trigger + <code>clinic-contract-sent</code>
+          tag backup) — guarded, working as designed.</div></div>
+      <div class="row"><div class="stage"><span class="i">06</span><b>Closed</b></div>
+        <div class="what"><span class="dot d"></span>No longer triggers anything — Post Signing moved downstream to stage 08.</div></div>
+      <div class="row"><div class="stage"><span class="i">07</span><b>No Show</b></div>
+        <div class="what"><span class="dot y"></span>The stage itself still triggers nothing, but <b>Missed Meetings</b> now runs off
+          <code>clinic-demo-no-show</code> / <code>clinic-demo-canceled</code> tags instead of the dead webhook — deterministic,
+          as long as someone applies the tag.</div></div>
+      <div class="row"><div class="stage"><span class="i">08</span><b>Waiting for Patient Data / Eligibility</b></div>
+        <div class="what"><span class="dot g"></span><b>Post Signing fires here now</b> — the old map's #1 silent stage is covered.</div></div>
+      <div class="row silent"><div class="stage"><span class="i">09</span><b>Panel Review Scheduled</b></div>
+        <div class="what"><span class="dot r"></span>Still no automation — no reminder, no prep email.</div></div>
+      <div class="row"><div class="stage"><span class="i">10</span><b>Live</b></div>
+        <div class="what"><span class="dot y"></span><b>Monthly Check-in</b> listens for <code>status-live</code> — which the builder
+          note confirms is applied manually. Applied never, so far: 0 live clinics get any recurring touch.</div></div>
+    </div>
+  </section>
+
+  <!-- ============ 4 · DEEP DIVES ============ -->
+  <section>
+    <h2><span class="num">4</span> · Step by step, with the real copy</h2>
+    <p class="lede">Template variables like <code>{{contact.first_name}}</code> render as the contact's real
+      data at send time; text in red boxes is literal text the customer sees.</p>
+
+    <!-- ===== Missed Meetings ===== -->
+    <div class="wf">
+      <div class="hd">
+        <div class="top">
+          <h3>Missed Meetings <span class="was">v9 · edited Jul 20</span></h3>
+          <span class="chip crit"><span class="dot"></span>Firing · broken links</span>
+        </div>
+        <div class="meta">
+          <span>In flight <b>0</b></span><span>Duration <b>~5 days</b></span>
+          <span>Touches <b>3 emails · 1 SMS · 1 task</b></span>
+          <span>Stop on reply <span class="bad">OFF — replies don't stop the chase</span></span>
+          <span>Re-entry <span class="good">ON</span></span>
+          <span>First cohort <span class="bad">6 through · 0 replies · 0 rebooks · 1 bounce</span></span>
+        </div>
+      </div>
+      <div class="trig new"><span class="t">Trigger · rewired</span> Tag <code>clinic-demo-no-show</code> is added — or, since
+        Jul 20, tag <code>clinic-demo-canceled</code>. Replaces the external webhook that had fired twice ever.</div>
+      <div class="steps">
+        <div class="step gray"><div class="when">Day 0</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge tag">Tag</span><span class="nm">Adds</span> <code>no-show</code></div>
+        </div></div>
+        <div class="step"><div class="when">Day 0</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 1</span><span class="nm">Instant reschedule ask</span></div>
+          <p class="subj">Subject: <b>"{{contact.first_name}}, missed you on the call"</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hey {{contact.first_name}},</p>
+            <p>We had time blocked for today and I was ready to go on my end. No worries at all though, it happens.</p>
+            <p>Do you want to find another slot this week? Just reply and I'll send a new invite over.</p>
+            <p>{{user.full_name}}</p></div>
+          </details>
+        </div></div>
+        <div class="step"><div class="when">+30 min</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge sms">SMS 1</span><span class="nm">Text nudge</span></div>
+          <div class="quote">"Hey {{contact.first_name}}, looks like we missed each other. No worries, reply with a good
+            time and I'll resend the invite."</div>
+        </div></div>
+        <div class="step gray"><div class="when">Day 2</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge task">Task</span><span class="nm">"Call – Reschedule Missed Meeting" → Adam</span></div>
+        </div></div>
+        <div class="step warn"><div class="when">Day 2</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 2</span><span class="nm">Soft follow-up</span><span class="flag">still sends literal "[Link]"</span></div>
+          <p class="subj">Subject: <b>"Re: missed you on the call"</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hey {{contact.first_name}},</p>
+            <p>Circling back on this. Totally understand if ten things hit at once and the call got buried.</p>
+            <p>If the timing is genuinely off right now, just say the word and I'll follow up with you next month.
+              No pressure at all. If not, here's my calendar so you can grab whatever works: [Link]</p>
+            <p>{{user.full_name}}</p></div>
+          </details>
+          <p class="note crit">The calendar link was never inserted — recipients see the raw text "[Link]" with nothing to click.
+            Unchanged from the Jul 15 map.</p>
+        </div></div>
+        <div class="step warn"><div class="when">Day 5</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 3</span><span class="nm">Value pitch + breakup</span><span class="flag">"[Link]" again + no from-address</span></div>
+          <p class="subj">Subject: <b>"{{contact.company_name}}, still worth 20 minutes?"</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hey {{contact.first_name}},</p>
+            <p>Last nudge from me on this, I promise.</p>
+            <p>Most practices we work with were leaving $300K to $400K a year in uncollected APCM revenue before we
+              came in. That's not a typo. Medicare pays up to $117.53 per patient per month under G0558 for
+              dual-eligible patients, and $53.91 for standard chronic care under G0557. It adds up fast.</p>
+            <p>We automate the entire billing process and your practice keeps 60 to 70% of everything collected.
+              No upfront cost.</p>
+            <p>If that sounds like it's worth 20 minutes of your time, grab a slot here: [Link]</p>
+            <p>{{user.full_name}}</p></div>
+          </details>
+        </div></div>
+        <div class="step gray"><div class="when">Day 5</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge tag">Tag</span><span class="nm">Removes</span> <code>no-show</code> <span style="color:var(--muted)">· sequence ends</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ===== Contract Sent ===== -->
+    <div class="wf">
+      <div class="hd">
+        <div class="top">
+          <h3>Contract Sent <span class="was">v11 · edited Jul 17</span></h3>
+          <span class="chip ok"><span class="dot"></span>Working · copy nits</span>
+        </div>
+        <div class="meta">
+          <span>In flight <b>1</b></span><span>Duration <b>~10 days</b></span>
+          <span>Touches <b>3 emails · 2 SMS · 2 tasks</b></span>
+          <span>Stop on reply <span class="good">ON</span></span>
+          <span>30-day sends <b>5 emails · 4 opened · 1 unsub</b></span>
+        </div>
+      </div>
+      <div class="trig new"><span class="t">Trigger · hardened</span> Deal enters <b>"Contract Sent"</b> in the Clinics Pipeline —
+        or tag <code>clinic-contract-sent</code> is added (backup path, new Jul 17).</div>
+      <div class="steps">
+        <div class="step gray"><div class="when">Day 0–3</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge branch">Wait + guard</span><span class="nm">3 quiet days, then a stage check</span><span class="flag good">new</span></div>
+          <p class="note">Only continues if the deal is <i>still</i> sitting in "Contract Sent". Signed, stalled-elsewhere,
+            or dead deals exit here without getting chased.</p>
+        </div></div>
+        <div class="step"><div class="when">Day 3</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 1</span><span class="nm">Delivery check</span></div>
+          <p class="subj">Subject: <b>"{{contact.first_name}}, did the agreement come through okay?"</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hey {{contact.first_name}},</p>
+            <p>Just making sure the agreement didn't get lost in the shuffle.</p>
+            <p>Nothing urgent on my end, I just want to make sure you actually received it before following up on
+              something you may not even have.</p>
+            <p>Any questions before you go through it, feel free to reach out.</p>
+            <p>{{user.full_name}}</p></div>
+          </details>
+        </div></div>
+        <div class="step gray"><div class="when">Day 4</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge task">Task</span><span class="nm">"Call – Reference Touch 1 Email" → Adam</span></div>
+        </div></div>
+        <div class="step"><div class="when">Day 4</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge sms">SMS 1</span><span class="nm">Email flag</span></div>
+          <div class="quote">"Hey {{contact.first_name}}, this is {{user.name}} from Tile Health. Sent you a quick email
+            about APCM revenue for {{contact.company_name}}. Worth a look."</div>
+        </div></div>
+        <div class="step warn"><div class="when">Day 6</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 2</span><span class="nm">Walk-through offer</span><span class="flag">typo survives</span></div>
+          <p class="subj">Subject: <b>"One thing I want to flag before you sign"</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hey {{contact.first_name}},</p>
+            <p>Before you go through the agreement on your own, I wanted to flag one thing. Sections sometimes reads a
+              little dense and I like to walk people through it on a call because it's simpler than it looks on paper.</p>
+            <p>Takes about 10 minutes. If you haven't reviewed it yet, it might be worth doing together. I'm around
+              this week if you want to hop on quickly.</p>
+            <p>{{user.full_name}}</p></div>
+          </details>
+          <p class="note crit">"Sections sometimes reads a little dense" — same grammar bug as the Jul 15 map, in the
+            highest-volume email.</p>
+        </div></div>
+        <div class="step gray"><div class="when">Day 8</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge task">Task</span><span class="nm">"Call – Reference Touch 2 Email" → Adam</span></div>
+        </div></div>
+        <div class="step"><div class="when">Day 10</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 3</span><span class="nm">Scarcity close</span></div>
+          <p class="subj">Subject: <b>"{{contact.company_name}}, holding your onboarding spot"</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hey {{contact.first_name}},</p>
+            <p>We have a new client batch kicking off soon and I've had {{contact.company_name}} penciled in.</p>
+            <p>I do need to confirm by end of this week though or I'll have to give the spot to someone else.</p>
+            <p>Once you're onboarded, your first billing file is generated within 30 days.</p>
+            <p>No upfront cost, no new hires, no time tracking burden on your staff. You submit the claims, you keep
+              60 to 70% of what comes back.</p>
+            <p>If you need a bit more time, just let me know and I'll move you to the next group.</p>
+            <p>{{user.full_name}}</p></div>
+          </details>
+        </div></div>
+        <div class="step warn"><div class="when">Day 10</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge sms">SMS 2</span><span class="nm">Last note</span><span class="flag">{{business.name}} mix-up survives</span></div>
+          <div class="quote">"{{contact.first_name}}, last note from me. Happy to show you the APCM math for
+            {{business.name}} if you're curious. No pressure either way."</div>
+          <p class="note crit">Still uses <code>{{business.name}}</code> (your business) instead of
+            <code>{{contact.company_name}}</code> — this text likely reads "the APCM math for Tile Health".
+            2 of the last 5 SMS in this workflow went undelivered.</p>
+        </div></div>
+        <div class="step gray"><div class="when">Day 10</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge tag">Tag</span><span class="nm">Adds</span> <code>follow-up</code> <span style="color:var(--muted)">· sequence ends</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ===== Post Signing ===== -->
+    <div class="wf">
+      <div class="hd">
+        <div class="top">
+          <h3>Post Signing <span class="was">v10 · edited Jul 20</span></h3>
+          <span class="chip warn"><span class="dot"></span>Rewired · blind timer</span>
+        </div>
+        <div class="meta">
+          <span>In flight <b>1</b></span><span>Duration <b>7 days</b></span>
+          <span>Touches <b>3 emails · 1 SMS · 2 tasks</b></span>
+          <span>Stop on reply <span class="good">ON</span></span>
+        </div>
+      </div>
+      <div class="trig new"><span class="t">Trigger · rewired</span> Deal enters <b>"Waiting for Patient Data / Eligibility check"</b> —
+        moved off the starved "Closed" stage, straight onto the onboarding bottleneck. A 15-second wait + stage guard
+        confirms the deal is really there before anything sends.</div>
+      <div class="steps">
+        <div class="step"><div class="when">Day 0</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 1</span><span class="nm">Welcome + roadmap</span><span class="flag good">attachment ✓</span></div>
+          <p class="subj">Subject: <b>"Welcome to Tile Health, {{contact.first_name}}. Here's what happens next."</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hey {{contact.first_name}},</p>
+            <p>Great to have {{contact.company_name}} on board. Here's what the next 30 days look like:</p>
+            <p>Step 1: You send us your patient data (I'll send instructions separately, it's straightforward).</p>
+            <p>Step 2: We run eligibility checks and identify your billable panel.</p>
+            <p>Step 3: We schedule a panel review so you can see the numbers before anything gets billed.</p>
+            <p>Step 4: Quick training session for your team (30 to 45 minutes), then you're live.</p>
+            <p>Your first billing file is generated within 30 days of going live. No upfront cost on your end, and
+              you keep 60 to 70% of everything collected.</p>
+            <p>I'll be your main point of contact through onboarding. Any questions at any point, just reply here or
+              call me directly.</p>
+            <p>{{user.full_name}},</p>
+            <p>Tile Health</p></div>
+          </details>
+        </div></div>
+        <div class="step gray"><div class="when">Day 1</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge task">Task</span><span class="nm">"Call – Reference Touch 1 Email" → Adam</span></div>
+          <p class="note">Task copy still references "uncollected APCM revenue" — a sales prompt left over in an
+            onboarding flow. Cosmetic, internal-only.</p>
+        </div></div>
+        <div class="step"><div class="when">Day 1</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge sms">SMS 1</span><span class="nm">Data nudge</span></div>
+          <div class="quote">"Hey {{contact.name}}, just checking in on the patient data for onboarding. Let me know if
+            your team needs help with the submission."</div>
+        </div></div>
+        <div class="step warn"><div class="when">Day 3</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 2</span><span class="nm">Patient-data instructions</span><span class="flag">says "attached" — nothing attached</span></div>
+          <p class="subj">Subject: <b>"{{contact.company_name}} onboarding, patient data next step"</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hey {{contact.first_name}},</p>
+            <p>Quick note on the next step. We need your patient data to start running eligibility checks. I've
+              attached a guide that walks through exactly what we need and how to send it. It's simpler than it
+              sounds, most practices get it done in under an hour.</p>
+            <p>If your office manager or billing lead is the right person to handle this, feel free to forward this
+              email to them and CC me. I'm happy to walk them through it directly.</p>
+            <p>The sooner we get the data, the sooner we can show you your billable panel size.</p>
+            <p>{{user.full_name}}</p></div>
+          </details>
+          <p class="note crit">The email promises an attached guide; no attachment is configured on this step.
+            Unchanged from the Jul 15 map.</p>
+        </div></div>
+        <div class="step gray"><div class="when">Day 5</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge task">Task</span><span class="nm">"Call – Reference Touch 2 Email" → Adam</span></div>
+        </div></div>
+        <div class="step warn"><div class="when">Day 7</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email 3</span><span class="nm">"You're live" declaration</span><span class="flag">blind timer</span></div>
+          <p class="subj">Subject: <b>"{{contact.company_name}} is live. Here's what to expect."</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hey {{contact.first_name}},</p>
+            <p>{{contact.company_name}} is officially live on the Tile Health platform. Here's what that means:</p>
+            <p>Your first billing file will be generated within the next 30 days. Once it's ready, I'll walk you
+              through the numbers before anything is submitted. After that, billing runs automatically each month.</p>
+            <p>If anything comes up in the meantime, anything at all, just reach out. I'm here.</p>
+            <p>Looking forward to seeing those first numbers come in for {{contact.company_name}}.</p>
+            <p>{{user.full_name}}</p></div>
+          </details>
+          <p class="note crit">Sends 7 days after entering the data-collection stage whether or not the clinic is
+            actually live — a clinic that hasn't sent its data yet gets told it's live. The eligibility check, panel
+            review, and training stages all sit between this stage and "Live".</p>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ===== Monthly Check-in ===== -->
+    <div class="wf">
+      <div class="hd">
+        <div class="top">
+          <h3>Monthly Check-in <span class="was">v4 · edited Jul 16</span></h3>
+          <span class="chip dead"><span class="dot"></span>Never fired</span>
+        </div>
+        <div class="meta">
+          <span>In flight <b>0</b></span><span>Duration <b>∞ · 30-day loop</b></span>
+          <span>Touches <b>1 email, repeating</b></span>
+          <span>Stop on reply <span class="good">ON</span></span>
+          <span>All-time sends <b>0</b></span>
+        </div>
+      </div>
+      <div class="trig"><span class="t">Trigger</span> Tag <code>status-live</code> is added. A builder sticky note (added Jul 16)
+        confirms: <i>"Monthly check in communications are to be sent once someone is live (status-live tag needs to be
+        added manually)."</i> No clinic has the tag yet.</div>
+      <div class="steps">
+        <div class="step warn"><div class="when">Day 0</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge email">Email</span><span class="nm">Monthly billing summary</span><span class="flag">placeholders send as-is</span></div>
+          <p class="subj">Subject: <b>"{{contact.company_name}}, your [Month] APCM billing summary"</b></p>
+          <details><summary>Read full email</summary>
+            <div class="quote"><p>Hey {{contact.first_name}},</p>
+            <p>Here's a quick summary of {{contact.company_name}}'s APCM billing for this month:</p>
+            <p>Patients billed: [X] Revenue collected: $[X] Your share (after Tile Health fee): $[X]</p>
+            <p>Everything is running as expected on our end. If anything looks off or if your team has questions,
+              just reply and I'll jump on it.</p>
+            <p>{{user.full_name}}, Tile Health</p></div>
+          </details>
+          <p class="note crit"><code>[Month]</code> and the three <code>$[X]</code> figures are literal text — GoHighLevel
+            has no billing data to merge. The first live clinic tagged will receive an email full of brackets.</p>
+        </div></div>
+        <div class="step gray"><div class="when">+30 days</div><div class="rail"><span class="node"></span></div><div class="body">
+          <div class="bhead"><span class="badge loop">Loop</span><span class="nm">Waits 30 days, then jumps back to the email</span></div>
+          <p class="note">Repeats monthly forever until the contact is removed or replies (stop-on-reply is ON —
+            one reply also ends the loop, which may not be the intent for a recurring summary).</p>
+        </div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5 · ISSUES ============ -->
+  <section>
+    <h2><span class="num">5</span> · Open issues</h2>
+    <p class="lede">Ranked. Everything here is visible to customers except the last two rows.</p>
+    <div class="issues">
+      <div class="irow"><span class="sev high">High</span><span class="where">Missed · Email 2+3</span>
+        <span>Literal "[Link]" instead of the booking link — third week live</span>
+        <span class="impact">The reschedule ask has no way to reschedule; the first cohort of 6 exited with 0 rebooks.</span></div>
+      <div class="irow"><span class="sev high">High</span><span class="where">Missed · settings</span>
+        <span>Stop-on-reply OFF</span>
+        <span class="impact">Prospects who reply keep getting chased — with re-entry now ON, this compounds.</span></div>
+      <div class="irow"><span class="sev high">High</span><span class="where">Monthly · Email</span>
+        <span>Placeholder copy ([Month], $[X]) would send as-is</span>
+        <span class="impact">First tagged clinic gets an obviously-broken billing summary.</span></div>
+      <div class="irow"><span class="sev high">High</span><span class="where">Monthly · trigger</span>
+        <span><code>status-live</code> tag is manual and has never been applied</span>
+        <span class="impact">0 live clinics get any recurring touch — unchanged from Jul 15.</span></div>
+      <div class="irow"><span class="sev high">High</span><span class="where">Post Signing · Email 3</span>
+        <span>"You're live" sent on a blind Day-7 timer</span>
+        <span class="impact">Clinics still stuck on patient data get told they're live.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">Post Signing · Email 2</span>
+        <span>Says "I've attached a guide" — no attachment configured</span>
+        <span class="impact">Undermines the ask that gates the whole onboarding.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">All 10 emails</span>
+        <span>No from-name / from-email set</span>
+        <span class="impact">Delivery and inbox display depend on account fallback. 1 hard bounce in Missed already.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">Contract · SMS 2</span>
+        <span><code>{{business.name}}</code> instead of <code>{{contact.company_name}}</code></span>
+        <span class="impact">Likely reads "the APCM math for Tile Health"; 2 of 5 recent SMS undelivered.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">Contract · Email 2</span>
+        <span>Typo: "Sections sometimes reads a little dense"</span>
+        <span class="impact">Cosmetic, in the highest-volume email.</span></div>
+      <div class="irow"><span class="sev med">Medium</span><span class="where">Coverage</span>
+        <span>Demo Booked, Demo Attended, Ready to Sign, Panel Review still silent</span>
+        <span class="impact">Four stages where a deal sits indefinitely with no automated touch.</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 6 · RECOMMENDATIONS ============ -->
+  <section>
+    <h2><span class="num">6</span> · Recommendations</h2>
+    <p class="lede">In order. The first three are copy/config fixes you can make today; the wiring rebuild is
+      done, so this round is smaller than last time.</p>
+    <div class="rec"><div class="n">1</div><div>
+      <h3>Finish the Missed Meetings fix.</h3><span class="eff">15 min</span>
+      <p>Replace both "[Link]" placeholders with the real booking link and turn stop-on-reply ON. The trigger
+        rebuild made this workflow fire reliably — which means it's now reliably sending broken emails to the
+        6 contacts in flight.</p>
+    </div></div>
+    <div class="rec"><div class="n">2</div><div>
+      <h3>Set a from-name and from-email on all 10 emails.</h3><span class="eff">20 min</span>
+      <p>One hard bounce and two undelivered SMS in 30 days on tiny volume. Explicit sender identity is the
+        cheapest deliverability fix available before volume scales.</p>
+    </div></div>
+    <div class="rec"><div class="n">3</div><div>
+      <h3>Clean the two Contract Sent copy bugs.</h3><span class="eff">10 min</span>
+      <p>Fix the "Sections sometimes reads" sentence and swap <code>{{business.name}}</code> →
+        <code>{{contact.company_name}}</code> in SMS 2. Both survived the rebuild untouched.</p>
+    </div></div>
+    <div class="rec"><div class="n">4</div><div>
+      <h3>Gate the "you're live" email on the actual Live stage.</h3><span class="eff">~30 min</span>
+      <p>Move Post Signing's Email 3 into its own small workflow triggered by the "Live" stage (or add a stage
+        guard before it, like the one already at the top of the flow). Attach the missing patient-data guide to
+        Email 2 while you're in there.</p>
+    </div></div>
+    <div class="rec"><div class="n">5</div><div>
+      <h3>Automate <code>status-live</code>, then fix the check-in copy.</h3><span class="eff">~1 hr</span>
+      <p>Apply the tag automatically when a deal reaches "Live" (one small workflow) — the manual process is now
+        documented on a sticky note, but documented-manual still means it has never happened. Then either merge
+        real billing data into the summary email or convert the loop into a monthly internal task for Adam.</p>
+    </div></div>
+    <div class="rec"><div class="n">6</div><div>
+      <h3>Cover the demo stages next.</h3><span class="eff">Roadmap</span>
+      <p>A demo confirmation + reminder sequence on "Demo Booked" attacks no-shows at the source — cheaper than
+        chasing them — and it's what feeds the tags Missed Meetings now depends on. Then Ready-to-Sign and
+        Panel Review nudges.</p>
+    </div></div>
+  </section>
+
+  <footer>
+    Built from HAR captures of the GoHighLevel workflow builder (Jul 21, re-verified Jul 27, 2026): full workflow definitions
+    including step graphs, message templates, trigger conditions, guard branches, builder sticky notes, and
+    30-day delivery statistics. Internal tasks are assigned to Adam Elnaba. Template variables like
+    {{contact.first_name}} render as the contact's real data at send time; text shown in red boxes is literal
+    text the customer sees. Supersedes the Jul 15, 2026 map.
+  </footer>
+
+</div>
