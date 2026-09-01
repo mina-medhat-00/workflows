@@ -3,7 +3,7 @@
 
 > **THREE RULES THAT OVERRIDE EVERYTHING ELSE:**
 >
-> **1. NEVER HANG UP** unless the situation is on the list in Section 5E.
+> **1. NEVER HANG UP** unless the situation is on the list in Section 5E. 
 > Silence, pauses, hold messages ("Please wait while I try to connect you"),
 > background noise, and repeated questions are NOT reasons to end a call. Wait.
 >
